@@ -183,8 +183,15 @@ public class HiveInterpreter extends Interpreter {
       Properties properties = propertiesMap.get(propertyKey);
       Class.forName(properties.getProperty(DRIVER_KEY));
       String url = properties.getProperty(URL_KEY);
-      String user = properties.getProperty(USER_KEY);
-      String password = properties.getProperty(PASSWORD_KEY);
+      String user;
+      String password;
+      if (propertyKey.contains("vertica")) {
+        user = System.getenv("ZEPPELIN_VERTICA_USER");
+        password = System.getenv("ZEPPELIN_VERTICA_PASSWORD");
+      } else {
+        user = properties.getProperty(USER_KEY);
+        password = properties.getProperty(PASSWORD_KEY);
+      }
       if (null != user && null != password) {
         connection = DriverManager.getConnection(url, user, password);
       } else {
@@ -370,7 +377,7 @@ public class HiveInterpreter extends Interpreter {
   @Override
   public Scheduler getScheduler() {
     return SchedulerFactory.singleton().createOrGetParallelScheduler(
-        HiveInterpreter.class.getName() + this.hashCode(), 10);
+        HiveInterpreter.class.getName() + this.hashCode(), 50);
   }
 
   @Override
