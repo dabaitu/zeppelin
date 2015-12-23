@@ -52,7 +52,7 @@ ZEPPELIN_LOGFILE="${ZEPPELIN_LOG_DIR}/zeppelin-${ZEPPELIN_IDENT_STRING}-${HOSTNA
 ZEPPELIN_OUTFILE="${ZEPPELIN_LOG_DIR}/zeppelin-${ZEPPELIN_IDENT_STRING}-${HOSTNAME}.out"
 ZEPPELIN_PID="${ZEPPELIN_PID_DIR}/zeppelin-${ZEPPELIN_IDENT_STRING}-${HOSTNAME}.pid"
 ZEPPELIN_MAIN=org.apache.zeppelin.server.ZeppelinServer
-JAVA_OPTS+=" -Dzeppelin.log.file=${ZEPPELIN_LOGFILE}"
+JAVA_OPTS+=" -Dzeppelin.log.file=${ZEPPELIN_LOGFILE} -Dlog4j.configuration=file:${ZEPPELIN_CONF_DIR}/log4j.properties"
 
 # construct classpath
 if [[ -d "${ZEPPELIN_HOME}/zeppelin-interpreter/target/classes" ]]; then
