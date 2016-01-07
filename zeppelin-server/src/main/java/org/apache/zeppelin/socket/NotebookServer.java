@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 package org.apache.zeppelin.socket;
+
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
@@ -49,14 +50,14 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Strings;
 import com.google.gson.Gson;
+
 /**
  * Zeppelin websocket service.
  *
  */
 public class NotebookServer extends WebSocketServlet implements
         NotebookSocketListener, JobListenerFactory, AngularObjectRegistryListener {
-  private static final Logger LOG = LoggerFactory
-          .getLogger(NotebookServer.class);
+  private static final Logger LOG = LoggerFactory.getLogger(NotebookServer.class);
   Gson gson = new Gson();
   final Map<String, List<NotebookSocket>> noteSocketMap = new HashMap<>();
   final Queue<NotebookSocket> connectedSockets = new ConcurrentLinkedQueue<>();
@@ -64,9 +65,9 @@ public class NotebookServer extends WebSocketServlet implements
   private Notebook notebook() {
     return ZeppelinServer.notebook;
   }
+
   @Override
   public boolean checkOrigin(HttpServletRequest request, String origin) {
-
     try {
       return SecurityUtils.isValidOrigin(origin, ZeppelinConfiguration.create());
     } catch (UnknownHostException e) {
@@ -74,7 +75,6 @@ public class NotebookServer extends WebSocketServlet implements
     } catch (URISyntaxException e) {
       e.printStackTrace();
     }
-
     return false;
   }
 
@@ -100,6 +100,9 @@ public class NotebookServer extends WebSocketServlet implements
       switch (messagereceived.op) {
           case LIST_NOTES:
             broadcastNoteList();
+            break;
+          case RELOAD_NOTES_FROM_REPO:
+            broadcastReloadedNoteList();
             break;
           case GET_HOME_NOTE:
             sendHomeNote(conn, notebook);
@@ -291,13 +294,21 @@ public class NotebookServer extends WebSocketServlet implements
     }
   }
 
-  public List<Map<String, String>> generateNotebooksInfo (){
+  public List<Map<String, String>> generateNotebooksInfo(boolean needsReload) {
     Notebook notebook = notebook();
 
     ZeppelinConfiguration conf = notebook.getConf();
     String homescreenNotebookId = conf.getString(ConfVars.ZEPPELIN_NOTEBOOK_HOMESCREEN);
     boolean hideHomeScreenNotebookFromList = conf
             .getBoolean(ConfVars.ZEPPELIN_NOTEBOOK_HOMESCREEN_HIDE);
+
+    if (needsReload) {
+      try {
+        notebook.reloadAllNotes();
+      } catch (IOException e) {
+        LOG.error("Fail to reload notes from repository");
+      }
+    }
 
     List<Note> notes = notebook.getAllNotes();
     List<Map<String, String>> notesInfo = new LinkedList<>();
@@ -321,8 +332,12 @@ public class NotebookServer extends WebSocketServlet implements
   }
 
   public void broadcastNoteList() {
+    List<Map<String, String>> notesInfo = generateNotebooksInfo(false);
+    broadcastAll(new Message(OP.NOTES_INFO).put("notes", notesInfo));
+  }
 
-    List<Map<String, String>> notesInfo = generateNotebooksInfo();
+  public void broadcastReloadedNoteList() {
+    List<Map<String, String>> notesInfo = generateNotebooksInfo(true);
     broadcastAll(new Message(OP.NOTES_INFO).put("notes", notesInfo));
   }
 
@@ -401,7 +416,8 @@ public class NotebookServer extends WebSocketServlet implements
 
     return cronUpdated;
   }
-  private void createNote(WebSocket conn, Notebook notebook, Message message) throws IOException {
+  private void createNote(NotebookSocket conn, Notebook notebook, Message message)
+      throws IOException {
     Note note = notebook.createNote();
     note.addParagraph(); // it's an empty note. so add one paragraph
     if (message != null) {
@@ -414,7 +430,7 @@ public class NotebookServer extends WebSocketServlet implements
 
     note.persist();
     addConnectionToNote(note.id(), (NotebookSocket) conn);
-    broadcastNote(note);
+    conn.send(serializeMessage(new Message(OP.NEW_NOTE).put("note", note)));
     broadcastNoteList();
   }
 
@@ -458,7 +474,7 @@ public class NotebookServer extends WebSocketServlet implements
     String name = (String) fromMessage.get("name");
     Note newNote = notebook.cloneNote(noteId, name);
     addConnectionToNote(newNote.id(), (NotebookSocket) conn);
-    broadcastNote(newNote);
+    conn.send(serializeMessage(new Message(OP.NEW_NOTE).put("note", newNote)));
     broadcastNoteList();
   }
 

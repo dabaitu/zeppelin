@@ -34,8 +34,8 @@
   <url>http://zeppelin.incubator.apache.org</url>
 
   <properties>
-    <scala.version>2.10.5</scala.version>
-    <hadoop.version>2.5.0</hadoop.version>
+    <scala.version>2.10.4</scala.version>
+    <hadoop.version>2.3.0</hadoop.version>
     <scalding.version>0.15.1-RC13</scalding.version>
   </properties>
 
@@ -97,9 +97,10 @@
       <version>${scala.version}</version>
     </dependency>
 
+    <!-- Scalding REPL needs org.apache.hadoop.conf.Configuration even in local mode -->
     <dependency>
       <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-client</artifactId>
+      <artifactId>hadoop-common</artifactId>
       <version>${hadoop.version}</version>
     </dependency>
   </dependencies>
