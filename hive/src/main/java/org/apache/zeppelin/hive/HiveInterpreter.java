@@ -188,6 +188,9 @@ public class HiveInterpreter extends Interpreter {
       if (propertyKey.contains("vertica")) {
         user = System.getenv("ZEPPELIN_VERTICA_USER");
         password = System.getenv("ZEPPELIN_VERTICA_PASSWORD");
+      } else if (propertyKey.contains("mysql")) {
+        user = System.getenv("ZEPPELIN_MYSQL_USER");
+        password = System.getenv("ZEPPELIN_MYSQL_PASSWORD");
       } else {
         user = properties.getProperty(USER_KEY);
         password = properties.getProperty(PASSWORD_KEY);
