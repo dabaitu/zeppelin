@@ -17,6 +17,10 @@
 
 package org.apache.zeppelin.server;
 
+import com.twitter.common_internal.elfowl.ElfOwlAuthenticator;
+import com.twitter.common_internal.elfowl.ElfOwlFilter;
+import com.twitter.common_internal.elfowl.ElfOwlServlet;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.EnumSet;
@@ -248,6 +252,22 @@ public class ZeppelinServer extends Application {
       LOG.info("ZeppelinServer Webapp path: {}", warTempDirectory.getPath());
       webApp.setTempDirectory(warTempDirectory);
     }
+
+    // Elfowl authentication
+    ElfOwlAuthenticator.Builder builder = new ElfOwlAuthenticator.Builder();
+    ElfOwlAuthenticator elfOwlAuthenticator = builder
+            .forElfOwlProduction()
+            .build();
+
+    webApp.addFilter(
+        new FilterHolder(elfOwlAuthenticator.getElfOwlFilter()),
+        ElfOwlFilter.DEFAULT_ELFOWL_FILTER_PATH_SPEC,
+        EnumSet.of(DispatcherType.REQUEST));
+
+    webApp.addServlet(
+        new ServletHolder(elfOwlAuthenticator.getElfOwlServlet()),
+        elfOwlAuthenticator.getPostBackPath());
+
     // Explicit bind to root
     webApp.addServlet(new ServletHolder(new DefaultServlet()), "/*");
     return webApp;

@@ -39,6 +39,14 @@
     <commons.httpclient.version>4.3.6</commons.httpclient.version>
   </properties>
 
+  <repositories>
+    <repository>
+      <id>central</id>
+      <name>libs-releases</name>
+      <url>https://artifactory.twitter.biz/libs-releases</url>
+    </repository>
+  </repositories>
+
   <dependencyManagement>
     <dependencies>
       <dependency>
@@ -241,6 +249,24 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- Auth related dependencies  -->
+    <dependency>
+      <groupId>com.twitter.common_internal</groupId>
+      <artifactId>elfowl</artifactId>
+      <version>LATEST</version>
+      <exclusions>
+        <exclusion>
+          <groupId>javax.servlet</groupId>
+          <artifactId>servlet-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk15on</artifactId>
+      <version>1.52</version>
+    </dependency>
 
     <dependency> <!-- because there are two of them above  -->
       <groupId>xml-apis</groupId>
