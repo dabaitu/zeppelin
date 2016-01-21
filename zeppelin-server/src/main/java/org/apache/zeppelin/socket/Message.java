@@ -94,6 +94,7 @@ public class Message {
     PARAGRAPH_REMOVE,
     PARAGRAPH_CLEAR_OUTPUT,
     PING,
+    AUTH_INFO,
 
     ANGULAR_OBJECT_UPDATE,  // [s-c] add/update angular object
     ANGULAR_OBJECT_REMOVE,  // [s-c] add angular object del

@@ -25,6 +25,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.HashSet;
+import java.util.Arrays;
+import java.util.Set;
 
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
@@ -54,6 +57,9 @@ public class Note implements Serializable, JobListener {
   final List<Paragraph> paragraphs = new LinkedList<>();
   private String name = "";
   private String id;
+  private HashSet<String> owners = new HashSet<String>();
+  private HashSet<String> readers = new HashSet<String>();
+  private HashSet<String> writers = new HashSet<String>();
 
   @SuppressWarnings("rawtypes")
   Map<String, List<AngularObject>> angularObjects = new HashMap<>();
@@ -107,6 +113,49 @@ public class Note implements Serializable, JobListener {
 
   public void setName(String name) {
     this.name = name;
+  }
+
+  public HashSet<String> getOwners() {
+    return (new HashSet<String>(owners));
+  }
+
+  public void setOwners(HashSet<String> owners) {
+    this.owners = owners;
+  }
+
+  public HashSet<String> getReaders() {
+    return (new HashSet<String>(readers));
+  }
+
+  public void setReaders(HashSet<String> readers) {
+    this.readers = readers;
+  }
+
+  public HashSet<String> getWriters() {
+    return (new HashSet<String>(writers));
+  }
+
+  public void setWriters(HashSet<String> writers) {
+    this.writers = writers;
+  }
+
+  public boolean isOwner(HashSet<String> entities) {
+    return isMember(entities, this.owners);
+  }
+
+  public boolean isReader(HashSet<String> entities) {
+    return isMember(entities, this.readers);
+  }
+
+  public boolean isWriter(HashSet<String> entities) {
+    return isMember(entities, this.writers);
+  }
+
+  // return true if b is empty or if (a intersection b) is non-empty
+  private boolean isMember(HashSet<String> a, HashSet<String> b) {
+    Set<String> intersection = new HashSet<String>(b);
+    intersection.retainAll(a);
+    return (b.isEmpty() || (intersection.size() > 0));
   }
 
   public NoteInterpreterLoader getNoteReplLoader() {
