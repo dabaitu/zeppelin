@@ -52,6 +52,7 @@ import com.google.gson.Gson;
  * Binded interpreters for a note
  */
 public class Note implements Serializable, JobListener {
+  private static final Logger LOG = LoggerFactory.getLogger(Note.class);
   private static final long serialVersionUID = 7920699076577612429L;
 
   final List<Paragraph> paragraphs = new LinkedList<>();
@@ -120,7 +121,7 @@ public class Note implements Serializable, JobListener {
   }
 
   public void setOwners(HashSet<String> owners) {
-    this.owners = owners;
+    this.owners = new HashSet<String>(owners);
   }
 
   public HashSet<String> getReaders() {
@@ -128,7 +129,7 @@ public class Note implements Serializable, JobListener {
   }
 
   public void setReaders(HashSet<String> readers) {
-    this.readers = readers;
+    this.readers = new HashSet<String>(readers);
   }
 
   public HashSet<String> getWriters() {
@@ -136,19 +137,21 @@ public class Note implements Serializable, JobListener {
   }
 
   public void setWriters(HashSet<String> writers) {
-    this.writers = writers;
+    this.writers = new HashSet<String>(writers);
   }
 
   public boolean isOwner(HashSet<String> entities) {
     return isMember(entities, this.owners);
   }
 
-  public boolean isReader(HashSet<String> entities) {
-    return isMember(entities, this.readers);
+  public boolean isWriter(HashSet<String> entities) {
+    return isMember(entities, this.writers) || isMember(entities, this.owners);
   }
 
-  public boolean isWriter(HashSet<String> entities) {
-    return isMember(entities, this.writers);
+  public boolean isReader(HashSet<String> entities) {
+    return isMember(entities, this.readers) ||
+            isMember(entities, this.owners) ||
+            isMember(entities, this.writers);
   }
 
   // return true if b is empty or if (a intersection b) is non-empty

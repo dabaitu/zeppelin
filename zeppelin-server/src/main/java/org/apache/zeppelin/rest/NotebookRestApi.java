@@ -18,10 +18,13 @@
 package org.apache.zeppelin.rest;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -30,9 +33,12 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import com.google.common.collect.Sets;
+import com.twitter.common_internal.elfowl.Cookie;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.interpreter.InterpreterSetting;
 import org.apache.zeppelin.notebook.Note;
@@ -65,12 +71,92 @@ public class NotebookRestApi {
   private NotebookServer notebookServer;
   private SearchService notebookIndex;
 
+  @Context
+  private HttpServletRequest servReq;
+
   public NotebookRestApi() {}
 
   public NotebookRestApi(Notebook notebook, NotebookServer notebookServer, SearchService search) {
     this.notebook = notebook;
     this.notebookServer = notebookServer;
     this.notebookIndex = search;
+  }
+
+  private Cookie extractCookie(HttpServletRequest request) {
+    javax.servlet.http.Cookie[] cookies = request.getCookies();
+    String elfOwlCookieValue = null;
+    for (javax.servlet.http.Cookie cookie: cookies) {
+      if (cookie.getName().equals("_elfowl")) {
+        elfOwlCookieValue = cookie.getValue();
+      }
+    }
+    Cookie.Session session = new Cookie.Session(
+            Cookie.Environment.PRODUCTION, request.getHeader("user-agent"));
+    Cookie cookie = Cookie.fromBase64(session, elfOwlCookieValue);
+    return cookie;
+  }
+
+  private HashSet<String> getUserAndGroups() {
+    String user;
+    HashSet<String> groups;
+    HashSet<String> userAndGroups;
+    user = extractCookie(servReq).getUser();
+    groups = Sets.newHashSet(extractCookie(servReq).getGroups().iterator());
+    userAndGroups = new HashSet<String>();
+    userAndGroups.add(user);
+    userAndGroups.addAll(groups);
+    return userAndGroups;
+  }
+
+  String ownerPermissionError(HashSet<String> userAndGroups, Note note)  throws IOException {
+    LOG.info("Cannot change permissions. Connection owners {}. Allowed onwers {}",
+            userAndGroups, note.getOwners());
+    return "Insufficient privileges to change permissions.\n" +
+                    "Allowed owners: " + note.getOwners().toString() + "\n" +
+                    "User belongs to: " + userAndGroups.toString();
+  }
+
+  /**
+   * list note owners
+   */
+  @GET
+  @Path("{noteId}/permissions")
+  public Response getNotePermissions(@PathParam("noteId") String noteId) {
+    Note note = notebook.getNote(noteId);
+    HashMap<String, HashSet> permissionsMap = new HashMap<String, HashSet>();
+    permissionsMap.put("owners", note.getOwners());
+    permissionsMap.put("readers", note.getReaders());
+    permissionsMap.put("writers", note.getWriters());
+    return new JsonResponse<>(Status.OK, "", permissionsMap).build();
+  }
+
+  /**
+   * list note owners
+   */
+  @PUT
+  @Path("{noteId}/permissions")
+  public Response putNotePermissions(@PathParam("noteId") String noteId, String req)
+      throws IOException {
+    HashSet<String> userAndGroups = getUserAndGroups();
+    LOG.debug("Request credentials {}", userAndGroups);
+    HashMap<String, HashSet> permMap = gson.fromJson(req,
+            new TypeToken<HashMap<String, HashSet>>(){}.getType());
+    Note note = notebook.getNote(noteId);
+    LOG.debug("Set permissions {} {} {}", permMap.get("owners"),
+            permMap.get("readers"),
+            permMap.get("writers"));
+    if (!note.isOwner(getUserAndGroups())) {
+      return new JsonResponse<>(Status.FORBIDDEN, ownerPermissionError(userAndGroups,
+              note)).build();
+    }
+    note.setOwners(permMap.get("owners"));
+    note.setReaders(permMap.get("readers"));
+    note.setWriters(permMap.get("writers"));
+    LOG.debug("After set permissions {} {} {}", note.getOwners(), note.getReaders(),
+            note.getWriters());
+    note.persist();
+    notebookServer.broadcastNote(note);
+    return new JsonResponse<>(Status.OK).build();
   }
 
   /**
