@@ -85,7 +85,7 @@ public class NotebookServer extends WebSocketServlet implements
 
   @Override
   public void onOpen(NotebookSocket conn) {
-    LOG.info("New connection from {} : {}: {}", conn.getRequest().getRemoteAddr(),
+    LOG.info("New connection from {} : {} : {}", conn.getRequest().getRemoteAddr(),
         conn.getRequest().getRemotePort(),
         conn.getUser()
     );
@@ -97,6 +97,10 @@ public class NotebookServer extends WebSocketServlet implements
     Notebook notebook = notebook();
     try {
       Message messagereceived = deserializeMessage(msg);
+      LOG.info("New operation from {} : {} : {} : {}", conn.getRequest().getRemoteAddr(),
+              conn.getRequest().getRemotePort(),
+              conn.getUser(), messagereceived.op
+      );
       LOG.debug("RECEIVE << " + messagereceived.op);
       /** Lets be elegant here */
       switch (messagereceived.op) {
@@ -167,8 +171,8 @@ public class NotebookServer extends WebSocketServlet implements
 
   @Override
   public void onClose(NotebookSocket conn, int code, String reason) {
-    LOG.info("Closed connection to {} : {}. ({}) {}", conn.getRequest()
-        .getRemoteAddr(), conn.getRequest().getRemotePort(), code, reason);
+    LOG.info("Closed connection to {} : {} : {}. ({}) {}", conn.getRequest()
+        .getRemoteAddr(), conn.getRequest().getRemotePort(), conn.getUser(), code, reason);
     removeConnectionFromAllNote(conn);
     connectedSockets.remove(conn);
   }
@@ -363,6 +367,10 @@ public class NotebookServer extends WebSocketServlet implements
 
   private void sendNote(NotebookSocket conn, Notebook notebook,
       Message fromMessage) throws IOException {
+    LOG.info("New operation from {} : {} : {} : {} : {}", conn.getRequest().getRemoteAddr(),
+            conn.getRequest().getRemotePort(),
+            conn.getUser(), fromMessage.op, fromMessage.get("id")
+    );
     String noteId = (String) fromMessage.get("id");
     if (noteId == null) {
       return;
@@ -465,6 +473,10 @@ public class NotebookServer extends WebSocketServlet implements
 
     note.persist();
     addConnectionToNote(note.id(), (NotebookSocket) conn);
+    LOG.info("New operation from {} : {} : {} : {} : {}", conn.getRequest().getRemoteAddr(),
+            conn.getRequest().getRemotePort(),
+            conn.getUser(), message.op, note.id()
+    );
     conn.send(serializeMessage(new Message(OP.NEW_NOTE).put("note", note)));
     broadcastNoteList();
   }
