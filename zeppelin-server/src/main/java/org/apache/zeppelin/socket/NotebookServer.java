@@ -97,10 +97,12 @@ public class NotebookServer extends WebSocketServlet implements
     Notebook notebook = notebook();
     try {
       Message messagereceived = deserializeMessage(msg);
-      LOG.info("New operation from {} : {} : {} : {}", conn.getRequest().getRemoteAddr(),
-              conn.getRequest().getRemotePort(),
-              conn.getUser(), messagereceived.op
-      );
+      if (messagereceived.op != OP.PING) {
+        LOG.info("New operation from {} : {} : {} : {}", conn.getRequest().getRemoteAddr(),
+                conn.getRequest().getRemotePort(),
+                conn.getUser(), messagereceived.op
+        );
+      };
       LOG.debug("RECEIVE << " + messagereceived.op);
       /** Lets be elegant here */
       switch (messagereceived.op) {
