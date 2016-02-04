@@ -155,6 +155,28 @@ public class InterpreterRestApi {
   }
 
   /**
+   * Print jobs for the interpreter setting in the log
+   * TODO(pwagle) Send jobs in the response
+   */
+  @GET
+  @Path("setting/jobs/{settingId}")
+  public Response getJobsSetting(@PathParam("settingId") String settingId) {
+    logger.info("Get jobs for interpreterSetting {}", settingId);
+    try {
+      interpreterFactory.getJobs(settingId);
+    } catch (InterpreterException e) {
+      logger.error("Exception in InterpreterRestApi while getting jobs ", e);
+      return new JsonResponse(
+              Status.NOT_FOUND, e.getMessage(), ExceptionUtils.getStackTrace(e)).build();
+    }
+    InterpreterSetting setting = interpreterFactory.get(settingId);
+    if (setting == null) {
+      return new JsonResponse(Status.NOT_FOUND, "", settingId).build();
+    }
+    return new JsonResponse(Status.OK, "", setting).build();
+  }
+
+  /**
    * List all available interpreters by group
    */
   @GET

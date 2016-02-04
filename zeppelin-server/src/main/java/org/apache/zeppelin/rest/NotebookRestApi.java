@@ -131,7 +131,7 @@ public class NotebookRestApi {
   }
 
   /**
-   * list note owners
+   * Set note owners
    */
   @PUT
   @Path("{noteId}/permissions")

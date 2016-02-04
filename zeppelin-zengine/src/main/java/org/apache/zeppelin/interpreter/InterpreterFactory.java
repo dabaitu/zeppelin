@@ -560,6 +560,27 @@ public class InterpreterFactory {
     }
   }
 
+  public void getJobs(String id) {
+    synchronized (interpreterSettings) {
+      InterpreterSetting intpsetting = interpreterSettings.get(id);
+      if (intpsetting != null) {
+        for (Interpreter intp : intpsetting.getInterpreterGroup()) {
+          logger.info("Interpreter " + intp.toString());
+          for (Job job : intp.getScheduler().getJobsRunning()) {
+            logger.info("Running Job {} {}", job.getJobName(), job.getId());
+          }
+          for (Job job : intp.getScheduler().getJobsWaiting()) {
+            logger.info("Waiting Job {} {}", job.getJobName(), job.getId());
+          }
+        }
+
+      } else {
+        throw new InterpreterException("Interpreter setting id " + id
+                + " not found");
+      }
+    }
+  }
+
   private void stopJobAllInterpreter(InterpreterSetting intpsetting) {
     if (intpsetting != null) {
       for (Interpreter intp : intpsetting.getInterpreterGroup()) {
