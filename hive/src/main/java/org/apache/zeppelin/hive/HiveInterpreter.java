@@ -40,6 +40,7 @@ import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.google.common.base.Objects;
 
 import static org.apache.commons.lang.StringUtils.containsIgnoreCase;
 
@@ -76,20 +77,46 @@ public class HiveInterpreter extends Interpreter {
   private final HashMap<String, Properties> propertiesMap;
   private final Map<String, Statement> paragraphIdStatementMap;
 
-  private final Map<String, ArrayList<Connection>> propertyKeyUnusedConnectionListMap;
-  private final Map<String, Connection> paragraphIdConnectionMap;
+  private final Map<String, Map<String, ArrayList<Connection>>> propertyKeyUnusedConnectionListMap;
+  private final Map<ParagraphUser, Connection> paragraphUserConnectionMap;
+
+  /**
+   * Executing User and ParagraphId Tuple
+   */
+  public class ParagraphUser {
+    public String executingUser;
+    public String paragraphId;
+
+    public ParagraphUser(String executingUser, String paragraphId) {
+      this.executingUser = executingUser;
+      this.paragraphId = paragraphId;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == this) return true;
+      return obj instanceof ParagraphUser
+              && Objects.equal(paragraphId, ((ParagraphUser) obj).paragraphId)
+              && Objects.equal(executingUser, ((ParagraphUser) obj).executingUser);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(this.executingUser, this.paragraphId);
+    }
+  }
 
   static {
     Interpreter.register(
-        "hql",
-        "hive",
-        HiveInterpreter.class.getName(),
-        new InterpreterPropertyBuilder()
-            .add(COMMON_MAX_LINE, MAX_LINE_DEFAULT, "Maximum line of results")
-            .add(DEFAULT_DRIVER, "org.apache.hive.jdbc.HiveDriver", "Hive JDBC driver")
-            .add(DEFAULT_URL, "jdbc:hive2://localhost:10000", "The URL for HiveServer2.")
-            .add(DEFAULT_USER, "hive", "The hive user")
-            .add(DEFAULT_PASSWORD, "", "The password for the hive user").build());
+            "hql",
+            "hive",
+            HiveInterpreter.class.getName(),
+            new InterpreterPropertyBuilder()
+                    .add(COMMON_MAX_LINE, MAX_LINE_DEFAULT, "Maximum line of results")
+                    .add(DEFAULT_DRIVER, "org.apache.hive.jdbc.HiveDriver", "Hive JDBC driver")
+                    .add(DEFAULT_URL, "jdbc:hive2://localhost:10000", "The URL for HiveServer2.")
+                    .add(DEFAULT_USER, "hive", "The hive user")
+                    .add(DEFAULT_PASSWORD, "", "The password for the hive user").build());
   }
 
   public HiveInterpreter(Properties property) {
@@ -97,7 +124,7 @@ public class HiveInterpreter extends Interpreter {
     propertiesMap = new HashMap<>();
     propertyKeyUnusedConnectionListMap = new HashMap<>();
     paragraphIdStatementMap = new HashMap<>();
-    paragraphIdConnectionMap = new HashMap<>();
+    paragraphUserConnectionMap = new HashMap<>();
   }
 
   public HashMap<String, Properties> getPropertiesMap() {
@@ -146,9 +173,12 @@ public class HiveInterpreter extends Interpreter {
   @Override
   public void close() {
     try {
-      for (List<Connection> connectionList : propertyKeyUnusedConnectionListMap.values()) {
-        for (Connection c : connectionList) {
-          c.close();
+      for (Map<String, ArrayList<Connection>> userConnectionMap:
+              propertyKeyUnusedConnectionListMap.values()) {
+        for (List<Connection> connectionList : userConnectionMap.values()) {
+          for (Connection c : connectionList) {
+            c.close();
+          }
         }
       }
 
@@ -157,25 +187,30 @@ public class HiveInterpreter extends Interpreter {
       }
       paragraphIdStatementMap.clear();
 
-      for (Connection connection : paragraphIdConnectionMap.values()) {
+      for (Connection connection : paragraphUserConnectionMap.values()) {
         connection.close();
       }
-      paragraphIdConnectionMap.clear();
+      paragraphUserConnectionMap.clear();
 
     } catch (SQLException e) {
       logger.error("Error while closing...", e);
     }
   }
 
-  public Connection getConnection(String propertyKey) throws ClassNotFoundException, SQLException {
+  public Connection getConnection(String propertyKey, String executingUser)
+      throws ClassNotFoundException, SQLException {
     Connection connection = null;
     if (propertyKeyUnusedConnectionListMap.containsKey(propertyKey)) {
-      ArrayList<Connection> connectionList = propertyKeyUnusedConnectionListMap.get(propertyKey);
-      if (0 != connectionList.size()) {
-        connection = propertyKeyUnusedConnectionListMap.get(propertyKey).remove(0);
-        if (null != connection && connection.isClosed()) {
-          connection.close();
-          connection = null;
+      Map<String, ArrayList<Connection>> userConnections =
+              propertyKeyUnusedConnectionListMap.get(executingUser);
+      if (userConnections != null) {
+        ArrayList<Connection> connectionList = userConnections.get(executingUser);
+        if (0 != connectionList.size()) {
+          connection = userConnections.get(executingUser).remove(0);
+          if (null != connection && connection.isClosed()) {
+            connection.close();
+            connection = null;
+          }
         }
       }
     }
@@ -188,6 +223,10 @@ public class HiveInterpreter extends Interpreter {
       if (propertyKey.contains("vertica")) {
         user = System.getenv("ZEPPELIN_VERTICA_USER");
         password = System.getenv("ZEPPELIN_VERTICA_PASSWORD");
+      } else if (propertyKey.contains("presto")) {
+        user = executingUser;
+        logger.info("User {}", executingUser);
+        password = null;
       } else if (propertyKey.contains("mysql-birdbrain")) {
         user = System.getenv("ZEPPELIN_MYSQL_BIRDBRAIN_USER");
         password = System.getenv("ZEPPELIN_MYSQL_BIRDBRAIN_PASSWORD");
@@ -198,7 +237,7 @@ public class HiveInterpreter extends Interpreter {
         user = properties.getProperty(USER_KEY);
         password = properties.getProperty(PASSWORD_KEY);
       }
-      if (null != user && null != password) {
+      if (null != user) {
         connection = DriverManager.getConnection(url, user, password);
       } else {
         connection = DriverManager.getConnection(url, properties);
@@ -207,23 +246,25 @@ public class HiveInterpreter extends Interpreter {
     return connection;
   }
 
-  public Statement getStatement(String propertyKey, String paragraphId)
+  public Statement getStatement(String propertyKey, ParagraphUser paragraphUser)
       throws SQLException, ClassNotFoundException {
     Connection connection;
-    if (paragraphIdConnectionMap.containsKey(paragraphId)) {
+
+    logger.info("Connection Map {}", paragraphUserConnectionMap);
+    if (paragraphUserConnectionMap.containsKey(paragraphUser)) {
       // Never enter for now.
-      connection = paragraphIdConnectionMap.get(paragraphId);
+      connection = paragraphUserConnectionMap.get(paragraphUser);
     } else {
-      connection = getConnection(propertyKey);
+      connection = getConnection(propertyKey, paragraphUser.executingUser);
     }
 
     Statement statement = connection.createStatement();
     if (isStatementClosed(statement)) {
-      connection = getConnection(propertyKey);
+      connection = getConnection(propertyKey, paragraphUser.executingUser);
       statement = connection.createStatement();
     }
-    paragraphIdConnectionMap.put(paragraphId, connection);
-    paragraphIdStatementMap.put(paragraphId, statement);
+    paragraphUserConnectionMap.put(paragraphUser, connection);
+    paragraphIdStatementMap.put(paragraphUser.paragraphId, statement);
 
     return statement;
   }
@@ -240,10 +281,12 @@ public class HiveInterpreter extends Interpreter {
   public InterpreterResult executeSql(String propertyKey, String sql,
                                       InterpreterContext interpreterContext) {
     String paragraphId = interpreterContext.getParagraphId();
+    String executingUser = interpreterContext.getExecutingUser();
+    ParagraphUser paragraphUser = new ParagraphUser(executingUser, paragraphId);
 
     try {
 
-      Statement statement = getStatement(propertyKey, paragraphId);
+      Statement statement = getStatement(propertyKey, paragraphUser);
 
       statement.setMaxRows(getMaxResult());
 
@@ -297,7 +340,7 @@ public class HiveInterpreter extends Interpreter {
           }
           statement.close();
         } finally {
-          moveConnectionToUnused(propertyKey, paragraphId);
+          moveConnectionToUnused(propertyKey, paragraphUser);
         }
       }
 
@@ -309,16 +352,24 @@ public class HiveInterpreter extends Interpreter {
     }
   }
 
-  private void moveConnectionToUnused(String propertyKey, String paragraphId) {
-    if (paragraphIdConnectionMap.containsKey(paragraphId)) {
-      Connection connection = paragraphIdConnectionMap.remove(paragraphId);
+  private void moveConnectionToUnused(String propertyKey, ParagraphUser paragraphUser) {
+    if (paragraphUserConnectionMap.containsKey(paragraphUser)) {
+      Connection connection = paragraphUserConnectionMap.remove(paragraphUser);
       if (null != connection) {
-        if (propertyKeyUnusedConnectionListMap.containsKey(propertyKey)) {
-          propertyKeyUnusedConnectionListMap.get(propertyKey).add(connection);
+        Map<String, ArrayList<Connection>> userConnectionMap =
+                propertyKeyUnusedConnectionListMap.get(propertyKey);
+        if (userConnectionMap == null) {
+          userConnectionMap = new HashMap<>();
+          propertyKeyUnusedConnectionListMap.put(propertyKey, userConnectionMap);
+        }
+        if (userConnectionMap.containsKey(paragraphUser.executingUser)) {
+          userConnectionMap.get(paragraphUser.executingUser).add(connection);
         } else {
           ArrayList<Connection> connectionList = new ArrayList<>();
           connectionList.add(connection);
-          propertyKeyUnusedConnectionListMap.put(propertyKey, connectionList);
+          userConnectionMap.put(paragraphUser.executingUser, connectionList);
+          logger.info("Added " + propertyKey + "-> " + paragraphUser.executingUser + "-> " +
+                  paragraphUser.paragraphId);
         }
       }
     }

@@ -44,6 +44,7 @@ public class Paragraph extends Job implements Serializable, Cloneable {
   String title;
   String text;
   Date dateUpdated;
+  String executingUser;                // user who last ran the note
   private Map<String, Object> config; // paragraph configs like isOpen, colWidth, etc
   public final GUI settings;          // form and parameter settings
 
@@ -54,6 +55,7 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     title = null;
     text = null;
     dateUpdated = null;
+    executingUser = null;
     settings = new GUI();
     config = new HashMap<String, Object>();
   }
@@ -91,6 +93,14 @@ public class Paragraph extends Job implements Serializable, Cloneable {
 
   public String getRequiredReplName() {
     return getRequiredReplName(text);
+  }
+
+  public String getExecutingUser() {
+    return executingUser;
+  }
+
+  public void setExecutingUser(String executingUser) {
+    this.executingUser = executingUser;
   }
 
   public static String getRequiredReplName(String text) {
@@ -209,6 +219,7 @@ public class Paragraph extends Job implements Serializable, Cloneable {
       InterpreterContext context = getInterpreterContext();
       InterpreterContext.set(context);
       InterpreterResult ret = repl.interpret(script, context);
+      logger().info("Interpreter context: Executing User" + context.getExecutingUser());
 
       if (Code.KEEP_PREVIOUS_RESULT == ret.code()) {
         return getReturn();
@@ -252,7 +263,8 @@ public class Paragraph extends Job implements Serializable, Cloneable {
             this.getConfig(),
             this.settings,
             registry,
-            runners);
+            runners,
+            executingUser);
     return interpreterContext;
   }
 

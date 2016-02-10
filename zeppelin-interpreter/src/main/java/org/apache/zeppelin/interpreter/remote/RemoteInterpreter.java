@@ -348,7 +348,8 @@ public class RemoteInterpreter extends Interpreter {
         ic.getParagraphText(),
         gson.toJson(ic.getConfig()),
         gson.toJson(ic.getGui()),
-        gson.toJson(ic.getRunners()));
+        gson.toJson(ic.getRunners()),
+        ic.getExecutingUser());
   }
 
   private InterpreterResult convert(RemoteInterpreterResult result) {

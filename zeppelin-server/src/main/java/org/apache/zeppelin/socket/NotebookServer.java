@@ -796,6 +796,7 @@ public class NotebookServer extends WebSocketServlet implements
     Map<String, Object> config = (Map<String, Object>) fromMessage
        .get("config");
     p.setConfig(config);
+    p.setExecutingUser(conn.getUser());
     // if it's the last paragraph, let's add a new one
     boolean isTheLastParagraph = note.getLastParagraph().getId()
         .equals(p.getId());

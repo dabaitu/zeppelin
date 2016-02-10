@@ -288,6 +288,7 @@
     },
     {
       "text": "%md\n\nAbout bank data\n\n```\nCitation Request:\n  This dataset is public available for research. The details are described in [Moro et al., 2011]. \n  Please include this citation if you plan to use this database:\n\n  [Moro et al., 2011] S. Moro, R. Laureano and P. Cortez. Using Data Mining for Bank Direct Marketing: An Application of the CRISP-DM Methodology. \n  In P. Novais et al. (Eds.), Proceedings of the European Simulation and Modelling Conference - ESM\u00272011, pp. 117-121, Guimarães, Portugal, October, 2011. EUROSIS.\n\n  Available at: [pdf] http://hdl.handle.net/1822/14838\n                [bib] http://www3.dsi.uminho.pt/pcortez/bib/2011-esm-1.txt\n```",
+      "dateUpdated": "Feb 4, 2016 8:18:48 PM",
       "config": {
         "colWidth": 12.0,
         "graph": {
@@ -299,7 +300,9 @@
           "groups": [],
           "scatter": {}
         },
-        "editorHide": true
+        "editorHide": true,
+        "enabled": true,
+        "editorMode": "ace/mode/markdown"
       },
       "settings": {
         "params": {},
@@ -319,21 +322,74 @@
       "progressUpdateIntervalMs": 500
     },
     {
-      "config": {},
+      "text": "%hive(presto)\nshow tables",
+      "dateUpdated": "Feb 5, 2016 1:26:03 AM",
+      "exectingUser": "rohanr",
+      "config": {
+        "colWidth": 12.0,
+        "graph": {
+          "mode": "table",
+          "height": 300.0,
+          "optionOpen": false,
+          "keys": [],
+          "values": [],
+          "groups": [],
+          "scatter": {}
+        },
+        "enabled": true,
+        "editorMode": "ace/mode/scala"
+      },
       "settings": {
         "params": {},
         "forms": {}
       },
       "jobName": "paragraph_1435955447812_-158639899",
       "id": "20150703-133047_853701097",
+      "result": {
+        "code": "SUCCESS",
+        "type": "TABLE",
+        "msg": "Table\nabc\nabc_test\nagg_logins_client_geo\nagg_logins_client_only_geo\nagg_logins_geo\nagg_logins_geo_cw_1682\nagg_logins_geo_parquet\nagg_logins_mobile_geo\nagg_logins_mobile_only_geo\nagg_logins_monetizable_geo\nagg_logins_too_geo\naggloginsclientsonlygeocw1547\naggloginsgeocw1547\narolett_test\nbad_signup_users\nbotmaker\nbotmaker_json\ncombined_user_snapshot\ncondensed_states2\ndim_one_row\nfabric_settings\nfabric_settings_requests\nflock_block\nguano_test_raghav\niesource\njlupien_test\nmobile_sdk_versions\npwagle_test_csv\npwagle_test_external_table\nrtbwin\nseo_profile_experimentation\nsignup_metrics_new_mau\nsmittal_tfe_logs\nstate_transitions_by_country\ntest_table\ntest_tweet_statue\ntfe_logs\ntfe_new_user_signup\ntracking_survey_metric\ntracking_survey_response\ntweet_rtf_events\ntweet_source\nuser\nuser_audits_analysis_28d_user_types\nuser_audits_final\nuser_demographics\nuser_engagement_28d\nuser_engagement_daily\nuser_login_type_carrier\nusers_flock_aggregation_daily_users\nvine_profile\nvit_list\n"
+      },
       "dateCreated": "Jul 3, 2015 1:30:47 PM",
+      "dateStarted": "Feb 5, 2016 1:26:03 AM",
+      "dateFinished": "Feb 5, 2016 1:26:07 AM",
+      "status": "FINISHED",
+      "progressUpdateIntervalMs": 500
+    },
+    {
+      "config": {},
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "jobName": "paragraph_1454636741182_1121379787",
+      "id": "20160204-174541_818008923",
+      "dateCreated": "Feb 4, 2016 5:45:41 PM",
       "status": "READY",
       "progressUpdateIntervalMs": 500
     }
   ],
   "name": "Zeppelin Tutorial",
   "id": "2A94M5J1Z",
-  "angularObjects": {},
+  "owners": [],
+  "readers": [],
+  "writers": [],
+  "angularObjects": {
+    "2B2Z95Q1P": [],
+    "2B2U736VN": [],
+    "2B26KGRT7": [],
+    "2B1VDHCD8": [],
+    "2B16N3ZR3": [],
+    "2B14R37R1": [],
+    "2AYKD7CK8": [],
+    "2AZJR95RD": [],
+    "2B36GDMXK": [],
+    "2B1HZWTUT": [],
+    "2AZB9P45E": [],
+    "2AZNWMH42": [],
+    "2AYVXSD9N": [],
+    "2B1Z2U2BF": []
+  },
   "config": {
     "looknfeel": "default"
   },

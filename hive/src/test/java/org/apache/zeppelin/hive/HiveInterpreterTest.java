@@ -79,9 +79,9 @@ public class HiveInterpreterTest {
     HiveInterpreter t = new HiveInterpreter(properties);
     t.open();
 
-    assertTrue(t.interpret("show databases", new InterpreterContext("", "1", "","", null,null,null,null)).message().contains("SCHEMA_NAME"));
+    assertTrue(t.interpret("show databases", new InterpreterContext("", "1", "","", null,null,null,null, null)).message().contains("SCHEMA_NAME"));
     assertEquals("ID\tNAME\na\ta_name\nb\tb_name\n",
-        t.interpret("select * from test_table", new InterpreterContext("", "1", "","", null,null,null,null)).message());
+        t.interpret("select * from test_table", new InterpreterContext("", "1", "","", null,null,null,null, null)).message());
   }
 
   @Test
@@ -101,7 +101,7 @@ public class HiveInterpreterTest {
     t.open();
 
     assertEquals("ID\tNAME\na\ta_name\nb\tb_name\n",
-        t.interpret("(h2)\n select * from test_table", new InterpreterContext("", "1", "","", null,null,null,null)).message());
+        t.interpret("(h2)\n select * from test_table", new InterpreterContext("", "1", "","", null,null,null,null, null)).message());
   }
 
   @Test
@@ -117,13 +117,13 @@ public class HiveInterpreterTest {
     t.open();
 
     InterpreterResult interpreterResult =
-        t.interpret("select * from test_table", new InterpreterContext("", "1", "","", null,null,null,null));
+        t.interpret("select * from test_table", new InterpreterContext("", "1", "","", null,null,null,null, null));
     assertEquals("ID\tNAME\na\ta_name\nb\tb_name\n", interpreterResult.message());
 
-    t.getConnection("default").close();
+    t.getConnection("default", null).close();
 
     interpreterResult =
-        t.interpret("select * from test_table", new InterpreterContext("", "1", "","", null,null,null,null));
+        t.interpret("select * from test_table", new InterpreterContext("", "1", "","", null,null,null,null, null));
     assertEquals("ID\tNAME\na\ta_name\nb\tb_name\n", interpreterResult.message());
   }
 
@@ -139,7 +139,31 @@ public class HiveInterpreterTest {
     HiveInterpreter t = new HiveInterpreter(properties);
     t.open();
 
-    InterpreterContext interpreterContext = new InterpreterContext(null, "a", null, null, null, null, null, null);
+    InterpreterContext interpreterContext = new InterpreterContext(null, "a", null, null, null, null, null, null, null);
+
+    //simple select test
+    InterpreterResult result = t.interpret("select * from test_table", interpreterContext);
+    assertEquals(result.type(), InterpreterResult.Type.TABLE);
+
+    //explain test
+    result = t.interpret("explain select * from test_table", interpreterContext);
+    assertEquals(result.type(), InterpreterResult.Type.TEXT);
+    t.close();
+  }
+
+  @Test
+  public void testPresto() throws IOException {
+    Properties properties = new Properties();
+    properties.setProperty("common.max_count", "1000");
+    properties.setProperty("common.max_retry", "3");
+    properties.setProperty("default.driver", "org.h2.Driver");
+    properties.setProperty("default.url", getJdbcConnection());
+    properties.setProperty("default.user", "");
+    properties.setProperty("default.password", "");
+    HiveInterpreter t = new HiveInterpreter(properties);
+    t.open();
+
+    InterpreterContext interpreterContext = new InterpreterContext(null, "a", null, null, null, null, null, null, null);
 
     //simple select test
     InterpreterResult result = t.interpret("select * from test_table", interpreterContext);

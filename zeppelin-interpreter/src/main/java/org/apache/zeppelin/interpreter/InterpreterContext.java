@@ -50,6 +50,7 @@ public class InterpreterContext {
   private GUI gui;
   private AngularObjectRegistry angularObjectRegistry;
   private List<InterpreterContextRunner> runners;
+  private String executingUser;
 
   public InterpreterContext(String noteId,
                             String paragraphId,
@@ -58,8 +59,8 @@ public class InterpreterContext {
                             Map<String, Object> config,
                             GUI gui,
                             AngularObjectRegistry angularObjectRegistry,
-                            List<InterpreterContextRunner> runners
-                            ) {
+                            List<InterpreterContextRunner> runners,
+                            String executingUser) {
     this.noteId = noteId;
     this.paragraphId = paragraphId;
     this.paragraphTitle = paragraphTitle;
@@ -68,6 +69,7 @@ public class InterpreterContext {
     this.gui = gui;
     this.angularObjectRegistry = angularObjectRegistry;
     this.runners = runners;
+    this.executingUser = executingUser;
   }
 
 
@@ -103,4 +105,11 @@ public class InterpreterContext {
     return runners;
   }
 
+  public String getExecutingUser() {
+    return executingUser;
+  }
+
+  public void setExecutingUser(String executingUser) {
+    this.executingUser = executingUser;
+  }
 }
