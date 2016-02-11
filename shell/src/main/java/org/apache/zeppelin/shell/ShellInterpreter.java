@@ -67,7 +67,7 @@ public class ShellInterpreter extends Interpreter {
     // TODO(pwagle) use ldap group, get from config file
     String [] allowedUsers = {"pwagle", "rohanr", "jsreeram", "srikantht", "ankitg", "jsprowl"};
     List <String> list = Arrays.asList(allowedUsers);
-    if(!list.contains(user)) {
+    if (!list.contains(user)) {
       logger.error("Cannot run shell command '" + cmd + "'" + " as " + user);
       return new InterpreterResult(Code.ERROR, "User is not allowed to run shell command " + user);
     }
