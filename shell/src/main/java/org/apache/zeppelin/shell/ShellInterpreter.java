@@ -19,6 +19,7 @@ package org.apache.zeppelin.shell;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
@@ -60,7 +61,17 @@ public class ShellInterpreter extends Interpreter {
 
   @Override
   public InterpreterResult interpret(String cmd, InterpreterContext contextInterpreter) {
-    logger.debug("Run shell command '" + cmd + "'");
+    String user = contextInterpreter.getExecutingUser();
+    logger.info("Run shell command '" + cmd + "'" + " as " + user);
+
+    // TODO(pwagle) use ldap group, get from config file
+    String [] allowedUsers = {"pwagle", "rohanr", "jsreeram", "srikantht", "ankitg", "jsprowl"};
+    List <String> list = Arrays.asList(allowedUsers);
+    if(!list.contains(user)) {
+      logger.error("Cannot run shell command '" + cmd + "'" + " as " + user);
+      return new InterpreterResult(Code.ERROR, "User is not allowed to run shell command " + user);
+    }
+
     long start = System.currentTimeMillis();
     CommandLine cmdLine = CommandLine.parse("bash");
     cmdLine.addArgument("-c", false);
