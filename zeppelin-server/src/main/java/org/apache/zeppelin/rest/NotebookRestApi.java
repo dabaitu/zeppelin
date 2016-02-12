@@ -221,8 +221,8 @@ public class NotebookRestApi {
     return new JsonResponse<>(Status.OK, "", notesInfo ).build();
   }
 
-  @GET
-  @Path("{notebookId}")
+//  @GET
+//  @Path("{notebookId}")
   public Response getNotebook(@PathParam("notebookId") String notebookId) throws IOException {
     Note note = notebook.getNote(notebookId);
     if (note == null) {
@@ -238,8 +238,8 @@ public class NotebookRestApi {
    * @return JSON with new note ID
    * @throws IOException
    */
-  @POST
-  @Path("/")
+//  @POST
+//  @Path("/")
   public Response createNote(String message) throws IOException {
     LOG.info("Create new notebook by JSON {}" , message);
     NewNotebookRequest request = gson.fromJson(message,
@@ -271,8 +271,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException
    */
-  @DELETE
-  @Path("{notebookId}")
+//  @DELETE
+//  @Path("{notebookId}")
   public Response deleteNote(@PathParam("notebookId") String notebookId) throws IOException {
     LOG.info("Delete notebook {} ", notebookId);
     if (!(notebookId.isEmpty())) {
@@ -291,8 +291,8 @@ public class NotebookRestApi {
    * @return JSON with status.CREATED
    * @throws IOException, CloneNotSupportedException, IllegalArgumentException
    */
-  @POST
-  @Path("{notebookId}")
+//  @POST
+//  @Path("{notebookId}")
   public Response cloneNote(@PathParam("notebookId") String notebookId, String message) throws
       IOException, CloneNotSupportedException, IllegalArgumentException {
     LOG.info("clone notebook by JSON {}" , message);
@@ -311,8 +311,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException
    */
-  @POST
-  @Path("{notebookId}/paragraph")
+//  @POST
+//  @Path("{notebookId}/paragraph")
   public Response insertParagraph(@PathParam("notebookId") String notebookId, String message)
       throws IOException {
     LOG.info("insert paragraph {} {}", notebookId, message);
@@ -345,8 +345,8 @@ public class NotebookRestApi {
    * @return JSON with information of the paragraph
    * @throws IOException
    */
-  @GET
-  @Path("{notebookId}/paragraph/{paragraphId}")
+//  @GET
+//  @Path("{notebookId}/paragraph/{paragraphId}")
   public Response getParagraph(@PathParam("notebookId") String notebookId,
                                @PathParam("paragraphId") String paragraphId) throws IOException {
     LOG.info("get paragraph {} {}", notebookId, paragraphId);
@@ -370,8 +370,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException
    */
-  @POST
-  @Path("{notebookId}/paragraph/{paragraphId}/move/{newIndex}")
+//  @POST
+//  @Path("{notebookId}/paragraph/{paragraphId}/move/{newIndex}")
   public Response moveParagraph(@PathParam("notebookId") String notebookId,
                                 @PathParam("paragraphId") String paragraphId,
                                 @PathParam("newIndex") String newIndex) throws IOException {
@@ -404,8 +404,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException
    */
-  @DELETE
-  @Path("{notebookId}/paragraph/{paragraphId}")
+//  @DELETE
+//  @Path("{notebookId}/paragraph/{paragraphId}")
   public Response deleteParagraph(@PathParam("notebookId") String notebookId,
                                   @PathParam("paragraphId") String paragraphId) throws IOException {
     LOG.info("delete paragraph {} {}", notebookId, paragraphId);
@@ -433,8 +433,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @POST
-  @Path("job/{notebookId}")
+//  @POST
+//  @Path("job/{notebookId}")
   public Response runNoteJobs(@PathParam("notebookId") String notebookId) throws
       IOException, IllegalArgumentException {
     LOG.info("run notebook jobs {} ", notebookId);
@@ -453,8 +453,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @DELETE
-  @Path("job/{notebookId}")
+//  @DELETE
+//  @Path("job/{notebookId}")
   public Response stopNoteJobs(@PathParam("notebookId") String notebookId) throws
       IOException, IllegalArgumentException {
     LOG.info("stop notebook jobs {} ", notebookId);
@@ -477,8 +477,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @GET
-  @Path("job/{notebookId}")
+//  @GET
+//  @Path("job/{notebookId}")
   public Response getNoteJobStatus(@PathParam("notebookId") String notebookId) throws
       IOException, IllegalArgumentException {
     LOG.info("get notebook job status.");
@@ -499,8 +499,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @POST
-  @Path("job/{notebookId}/{paragraphId}")
+//  @POST
+//  @Path("job/{notebookId}/{paragraphId}")
   public Response runParagraph(@PathParam("notebookId") String notebookId, 
                                @PathParam("paragraphId") String paragraphId,
                                String message) throws
@@ -538,8 +538,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @DELETE
-  @Path("job/{notebookId}/{paragraphId}")
+//  @DELETE
+//  @Path("job/{notebookId}/{paragraphId}")
   public Response stopParagraph(@PathParam("notebookId") String notebookId, 
                                 @PathParam("paragraphId") String paragraphId) throws
                                 IOException, IllegalArgumentException {
@@ -563,8 +563,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @POST
-  @Path("cron/{notebookId}")
+//  @POST
+//  @Path("cron/{notebookId}")
   public Response registerCronJob(@PathParam("notebookId") String notebookId, String message) throws
       IOException, IllegalArgumentException {
     LOG.info("Register cron job note={} request cron msg={}", notebookId, message);
@@ -595,8 +595,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @DELETE
-  @Path("cron/{notebookId}")
+//  @DELETE
+//  @Path("cron/{notebookId}")
   public Response removeCronJob(@PathParam("notebookId") String notebookId) throws
       IOException, IllegalArgumentException {
     LOG.info("Remove cron job note {}", notebookId);
@@ -620,8 +620,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @GET
-  @Path("cron/{notebookId}")
+//  @GET
+//  @Path("cron/{notebookId}")
   public Response getCronJob(@PathParam("notebookId") String notebookId) throws
       IOException, IllegalArgumentException {
     LOG.info("Get cron job note {}", notebookId);
