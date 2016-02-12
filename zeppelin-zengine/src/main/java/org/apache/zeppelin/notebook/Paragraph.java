@@ -103,6 +103,31 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     this.executingUser = executingUser;
   }
 
+  public static String getExtendedRequiredReplName(String text) {
+    if (text == null) {
+      return null;
+    }
+
+    // get script head
+    int scriptHeadIndex = 0;
+    for (int i = 0; i < text.length(); i++) {
+      char ch = text.charAt(i);
+      if (ch == ' ' || ch == '\n') {
+        scriptHeadIndex = i;
+        break;
+      }
+    }
+    if (scriptHeadIndex == 0) {
+      return null;
+    }
+    String head = text.substring(0, scriptHeadIndex);
+    if (head.startsWith("%")) {
+      return head.substring(1);
+    } else {
+      return null;
+    }
+  }
+
   public static String getRequiredReplName(String text) {
     if (text == null) {
       return null;

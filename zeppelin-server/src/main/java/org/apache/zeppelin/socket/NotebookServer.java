@@ -788,6 +788,24 @@ public class NotebookServer extends WebSocketServlet implements
     }
     Paragraph p = note.getParagraph(paragraphId);
     String text = (String) fromMessage.get("paragraph");
+
+    HashSet<String> userAndGroups = conn.getUserAndGroups();
+    if (p.getExtendedRequiredReplName(text).contains("vertica")) {
+      if (userAndGroups.contains("hadoop-nonpublic") ||
+              userAndGroups.contains("vert-ana-analytics-prod-ro")) {
+        LOG.info("Vertica query allowed for {} {}", conn.getUser(), userAndGroups);
+      } else {
+        LOG.info("Vertica query not allowed for {} {}", conn.getUser(), userAndGroups);
+        conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
+                "Insufficient privileges to run vertica query.\n\n" +
+                        "Allowed groups: hadoop-nonpublic vert-ana-analytics-prod-ro" + "\n\n" +
+                        "User belongs to: " + conn.getUserAndGroups().toString() + "\n\n" +
+                        "CW-1731 fix will allow access based on individual permissions"))
+        );
+        return;
+      }
+    }
+
     p.setText(text);
     p.setTitle((String) fromMessage.get("title"));
     Map<String, Object> params = (Map<String, Object>) fromMessage
