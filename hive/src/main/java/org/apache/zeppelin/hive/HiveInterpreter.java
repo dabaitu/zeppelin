@@ -283,6 +283,7 @@ public class HiveInterpreter extends Interpreter {
     String paragraphId = interpreterContext.getParagraphId();
     String executingUser = interpreterContext.getExecutingUser();
     ParagraphUser paragraphUser = new ParagraphUser(executingUser, paragraphId);
+    boolean connectionClosedException = false;
 
     try {
 
@@ -333,6 +334,13 @@ public class HiveInterpreter extends Interpreter {
           msg.append(UPDATE_COUNT_HEADER).append(NEWLINE);
           msg.append(updateCount).append(NEWLINE);
         }
+      } catch (SQLException ex) {
+        logger.error("Cannot run " + sql, ex);
+        if (ex.getMessage().contains("java.sql.SQLException: [Vertica][VJDBC](100161) The connection is closed")) {
+          logger.error("Set connectionClosedException = true");
+          connectionClosedException = true;
+        }
+        return new InterpreterResult(Code.ERROR, ex.getMessage());
       } finally {
         try {
           if (resultSet != null) {
@@ -340,7 +348,13 @@ public class HiveInterpreter extends Interpreter {
           }
           statement.close();
         } finally {
-          moveConnectionToUnused(propertyKey, paragraphUser);
+          // reuse connection if and only if connectionClosedException is false
+          if (!connectionClosedException) {
+            logger.info("moveConnectionToUnused");
+            moveConnectionToUnused(propertyKey, paragraphUser);
+          } else {
+            logger.error("Do not moveConnectionToUnused");
+          }
         }
       }
 
@@ -387,7 +401,7 @@ public class HiveInterpreter extends Interpreter {
 
     cmd = cmd.trim();
 
-    logger.info("PropertyKey: {}, SQL command: '{}'", propertyKey, cmd);
+    logger.info("PropertyKey: {}, SQL command: '{}', User: {}", propertyKey, cmd, contextInterpreter.getExecutingUser());
 
     return executeSql(propertyKey, cmd, contextInterpreter);
   }
