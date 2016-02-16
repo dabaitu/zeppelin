@@ -200,13 +200,15 @@ public class HiveInterpreter extends Interpreter {
   public Connection getConnection(String propertyKey, String executingUser)
       throws ClassNotFoundException, SQLException {
     Connection connection = null;
+    logger.info("Connection Map {}", propertyKeyUnusedConnectionListMap);
     if (propertyKeyUnusedConnectionListMap.containsKey(propertyKey)) {
-      Map<String, ArrayList<Connection>> userConnections =
-              propertyKeyUnusedConnectionListMap.get(executingUser);
-      if (userConnections != null) {
-        ArrayList<Connection> connectionList = userConnections.get(executingUser);
-        if (0 != connectionList.size()) {
-          connection = userConnections.get(executingUser).remove(0);
+      Map<String, ArrayList<Connection>> usersConnectionMap =
+              propertyKeyUnusedConnectionListMap.get(propertyKey);
+      if (usersConnectionMap != null) {
+        ArrayList<Connection> connectionList = usersConnectionMap.get(executingUser);
+        if (null != connectionList && 0 != connectionList.size()) {
+          connection = connectionList.remove(0);
+          logger.info("Connection retrieved: {}", connection);
           if (null != connection && connection.isClosed()) {
             connection.close();
             connection = null;
@@ -250,7 +252,7 @@ public class HiveInterpreter extends Interpreter {
       throws SQLException, ClassNotFoundException {
     Connection connection;
 
-    logger.info("Connection Map {}", paragraphUserConnectionMap);
+    logger.info("PropertyKeyUnusedConnection Map {}", propertyKeyUnusedConnectionListMap);
     if (paragraphUserConnectionMap.containsKey(paragraphUser)) {
       // Never enter for now.
       connection = paragraphUserConnectionMap.get(paragraphUser);
@@ -336,7 +338,8 @@ public class HiveInterpreter extends Interpreter {
         }
       } catch (SQLException ex) {
         logger.error("Cannot run " + sql, ex);
-        if (ex.getMessage().contains("java.sql.SQLException: [Vertica][VJDBC](100161) The connection is closed")) {
+        if (ex.getMessage().contains("java.sql.SQLException: " +
+                "[Vertica][VJDBC](100161) The connection is closed")) {
           logger.error("Set connectionClosedException = true");
           connectionClosedException = true;
         }
@@ -369,6 +372,8 @@ public class HiveInterpreter extends Interpreter {
   private void moveConnectionToUnused(String propertyKey, ParagraphUser paragraphUser) {
     if (paragraphUserConnectionMap.containsKey(paragraphUser)) {
       Connection connection = paragraphUserConnectionMap.remove(paragraphUser);
+      logger.info("Connection {} for user: " + paragraphUser.executingUser +
+              "moved to unusedConnections", connection);
       if (null != connection) {
         Map<String, ArrayList<Connection>> userConnectionMap =
                 propertyKeyUnusedConnectionListMap.get(propertyKey);
@@ -386,6 +391,8 @@ public class HiveInterpreter extends Interpreter {
                   paragraphUser.paragraphId);
         }
       }
+      logger.info("ConnectionMap after recycling connection {}",
+              propertyKeyUnusedConnectionListMap);
     }
   }
 
@@ -401,7 +408,8 @@ public class HiveInterpreter extends Interpreter {
 
     cmd = cmd.trim();
 
-    logger.info("PropertyKey: {}, SQL command: '{}', User: {}", propertyKey, cmd, contextInterpreter.getExecutingUser());
+    logger.info("PropertyKey: {}, SQL command: '{}', User: {}", propertyKey, cmd,
+            contextInterpreter.getExecutingUser());
 
     return executeSql(propertyKey, cmd, contextInterpreter);
   }
