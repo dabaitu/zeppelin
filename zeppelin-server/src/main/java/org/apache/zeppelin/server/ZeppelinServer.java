@@ -93,14 +93,20 @@ public class ZeppelinServer extends Application {
     ZeppelinConfiguration conf = ZeppelinConfiguration.create();
     conf.setProperty("args", args);
 
+    // Elfowl authentication
+    ElfOwlAuthenticator.Builder builder = new ElfOwlAuthenticator.Builder();
+    ElfOwlAuthenticator elfOwlAuthenticator = builder
+            .forElfOwlProduction()
+            .build();
+
     // REST api
-    final ServletContextHandler restApiContext = setupRestApiContextHandler(conf);
+    final ServletContextHandler restApiContext = setupRestApiContextHandler(conf, elfOwlAuthenticator);
 
     // Notebook server
-    final ServletContextHandler notebookContext = setupNotebookServer(conf);
+    final ServletContextHandler notebookContext = setupNotebookServer(conf, elfOwlAuthenticator);
 
     // Web UI
-    final WebAppContext webApp = setupWebAppContext(conf);
+    final WebAppContext webApp = setupWebAppContext(conf, elfOwlAuthenticator);
 
     // add all handlers
     ContextHandlerCollection contexts = new ContextHandlerCollection();
@@ -168,7 +174,8 @@ public class ZeppelinServer extends Application {
     return server;
   }
 
-  private static ServletContextHandler setupNotebookServer(ZeppelinConfiguration conf) {
+  private static ServletContextHandler setupNotebookServer(ZeppelinConfiguration conf,
+                                                           ElfOwlAuthenticator elfOwlAuthenticator) {
     notebookWsServer = new NotebookServer();
     final ServletHolder servletHolder = new ServletHolder(notebookWsServer);
     servletHolder.setInitParameter("maxTextMessageSize", "1024000");
@@ -179,6 +186,12 @@ public class ZeppelinServer extends Application {
     cxfContext.setSessionHandler(new SessionHandler());
     cxfContext.setContextPath(conf.getServerContextPath());
     cxfContext.addServlet(servletHolder, "/ws/*");
+
+    cxfContext.addFilter(
+            new FilterHolder(elfOwlAuthenticator.getElfOwlFilter()),
+            ElfOwlFilter.DEFAULT_ELFOWL_FILTER_PATH_SPEC,
+            EnumSet.allOf(DispatcherType.class));
+
 //    cxfContext.addFilter(new FilterHolder(CorsFilter.class), "/*",
 //        EnumSet.allOf(DispatcherType.class));
     return cxfContext;
@@ -217,7 +230,8 @@ public class ZeppelinServer extends Application {
     return scf.getSslContext();
   }
 
-  private static ServletContextHandler setupRestApiContextHandler(ZeppelinConfiguration conf) {
+  private static ServletContextHandler setupRestApiContextHandler(ZeppelinConfiguration conf,
+                                                                  ElfOwlAuthenticator elfOwlAuthenticator) {
     final ServletHolder cxfServletHolder = new ServletHolder(new CXFNonSpringJaxrsServlet());
     cxfServletHolder.setInitParameter("javax.ws.rs.Application", ZeppelinServer.class.getName());
     cxfServletHolder.setName("rest");
@@ -228,13 +242,18 @@ public class ZeppelinServer extends Application {
     cxfContext.setContextPath(conf.getServerContextPath());
     cxfContext.addServlet(cxfServletHolder, "/api/*");
 
+    cxfContext.addFilter(
+            new FilterHolder(elfOwlAuthenticator.getElfOwlFilter()),
+            ElfOwlFilter.DEFAULT_ELFOWL_FILTER_PATH_SPEC,
+            EnumSet.allOf(DispatcherType.class));
+
 //    cxfContext.addFilter(new FilterHolder(CorsFilter.class), "/*",
 //        EnumSet.allOf(DispatcherType.class));
     return cxfContext;
   }
 
   private static WebAppContext setupWebAppContext(
-      ZeppelinConfiguration conf) {
+      ZeppelinConfiguration conf, ElfOwlAuthenticator elfOwlAuthenticator) {
 
     WebAppContext webApp = new WebAppContext();
     webApp.setContextPath(conf.getServerContextPath());
@@ -253,16 +272,10 @@ public class ZeppelinServer extends Application {
       webApp.setTempDirectory(warTempDirectory);
     }
 
-    // Elfowl authentication
-    ElfOwlAuthenticator.Builder builder = new ElfOwlAuthenticator.Builder();
-    ElfOwlAuthenticator elfOwlAuthenticator = builder
-            .forElfOwlProduction()
-            .build();
-
     webApp.addFilter(
         new FilterHolder(elfOwlAuthenticator.getElfOwlFilter()),
         ElfOwlFilter.DEFAULT_ELFOWL_FILTER_PATH_SPEC,
-        EnumSet.of(DispatcherType.REQUEST));
+        EnumSet.allOf(DispatcherType.class));
 
     webApp.addServlet(
         new ServletHolder(elfOwlAuthenticator.getElfOwlServlet()),
