@@ -23,6 +23,7 @@ import javax.servlet.http.HttpServletRequest;
 
 import com.google.common.collect.Sets;
 import com.twitter.common_internal.elfowl.Cookie;
+import org.apache.zeppelin.utils.SecurityUtils;
 import org.eclipse.jetty.websocket.WebSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,27 +42,13 @@ public class NotebookSocket implements WebSocket.OnTextMessage{
   private HashSet<String> groups;
   private HashSet<String> userAndGroups;
 
-  private Cookie extractCookie(HttpServletRequest request) {
-    javax.servlet.http.Cookie[] cookies = request.getCookies();
-    String elfOwlCookieValue = null;
-    for (javax.servlet.http.Cookie cookie: cookies) {
-      if (cookie.getName().equals("_elfowl")) {
-        elfOwlCookieValue = cookie.getValue();
-      }
-    }
-    Cookie.Session session = new Cookie.Session(
-            Cookie.Environment.PRODUCTION, request.getHeader("user-agent"));
-    Cookie cookie = Cookie.fromBase64(session, elfOwlCookieValue);
-    return cookie;
-  }
-
   public NotebookSocket(HttpServletRequest req, String protocol,
       NotebookSocketListener listener) {
     this.listener = listener;
     this.request = req;
     this.protocol = protocol;
-    this.user = extractCookie(req).getUser();
-    this.groups = Sets.newHashSet(extractCookie(req).getGroups().iterator());
+    this.user = SecurityUtils.getUser(req);
+    this.groups = SecurityUtils.getGroups(req);
     this.userAndGroups = new HashSet<String>();
     userAndGroups.add(this.user);
     userAndGroups.addAll(this.groups);

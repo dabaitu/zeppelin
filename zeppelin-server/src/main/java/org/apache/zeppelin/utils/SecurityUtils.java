@@ -16,12 +16,16 @@
  */
 package org.apache.zeppelin.utils;
 
+import com.google.common.collect.Sets;
+import com.twitter.common_internal.elfowl.Cookie;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 
+import javax.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.util.HashSet;
 
 /**
  * Tools for securing Zeppelin
@@ -44,4 +48,29 @@ public class SecurityUtils {
             "localhost".equals(sourceUriHost) ||
             conf.getAllowedOrigins().contains(sourceHost);
   }
+
+  public static Cookie extractCookie(HttpServletRequest request) {
+    javax.servlet.http.Cookie[] cookies = request.getCookies();
+    String elfOwlCookieValue = null;
+    for (javax.servlet.http.Cookie cookie: cookies) {
+      if (cookie.getName().equals("_elfowl")) {
+        elfOwlCookieValue = cookie.getValue();
+      }
+    }
+    Cookie.Session session = new Cookie.Session(
+            Cookie.Environment.PRODUCTION, request.getHeader("user-agent"));
+    Cookie cookie = Cookie.fromBase64(session, elfOwlCookieValue);
+    return cookie;
+  }
+
+  public static String getUser(HttpServletRequest request) {
+    Cookie cookie = SecurityUtils.extractCookie(request);
+    return cookie.getUser();
+  }
+
+  public static HashSet<String> getGroups(HttpServletRequest request) {
+    Cookie cookie = SecurityUtils.extractCookie(request);
+    return Sets.newHashSet(cookie.getGroups().iterator());
+  }
+
 }

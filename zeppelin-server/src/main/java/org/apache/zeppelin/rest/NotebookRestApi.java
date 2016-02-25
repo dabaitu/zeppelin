@@ -52,6 +52,7 @@ import org.apache.zeppelin.rest.message.RunParagraphWithParametersRequest;
 import org.apache.zeppelin.search.SearchService;
 import org.apache.zeppelin.server.JsonResponse;
 import org.apache.zeppelin.socket.NotebookServer;
+import org.apache.zeppelin.utils.SecurityUtils;
 import org.quartz.CronExpression;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,26 +83,12 @@ public class NotebookRestApi {
     this.notebookIndex = search;
   }
 
-  private Cookie extractCookie(HttpServletRequest request) {
-    javax.servlet.http.Cookie[] cookies = request.getCookies();
-    String elfOwlCookieValue = null;
-    for (javax.servlet.http.Cookie cookie: cookies) {
-      if (cookie.getName().equals("_elfowl")) {
-        elfOwlCookieValue = cookie.getValue();
-      }
-    }
-    Cookie.Session session = new Cookie.Session(
-            Cookie.Environment.PRODUCTION, request.getHeader("user-agent"));
-    Cookie cookie = Cookie.fromBase64(session, elfOwlCookieValue);
-    return cookie;
-  }
-
   private HashSet<String> getUserAndGroups() {
     String user;
     HashSet<String> groups;
     HashSet<String> userAndGroups;
-    user = extractCookie(servReq).getUser();
-    groups = Sets.newHashSet(extractCookie(servReq).getGroups().iterator());
+    user = SecurityUtils.getUser(servReq);
+    groups = SecurityUtils.getGroups(servReq);
     userAndGroups = new HashSet<String>();
     userAndGroups.add(user);
     userAndGroups.addAll(groups);

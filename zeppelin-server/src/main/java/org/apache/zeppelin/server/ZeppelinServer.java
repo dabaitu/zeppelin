@@ -247,6 +247,11 @@ public class ZeppelinServer extends Application {
             ElfOwlFilter.DEFAULT_ELFOWL_FILTER_PATH_SPEC,
             EnumSet.allOf(DispatcherType.class));
 
+    cxfContext.addFilter(
+            new FilterHolder(AdminAuthenticationFilter.class),
+            "/*",
+            EnumSet.allOf(DispatcherType.class));
+
 //    cxfContext.addFilter(new FilterHolder(CorsFilter.class), "/*",
 //        EnumSet.allOf(DispatcherType.class));
     return cxfContext;
