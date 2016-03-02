@@ -51,14 +51,15 @@ public class AdminAuthenticationFilter implements Filter {
 
   @Override
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain filterChain)
-          throws IOException, ServletException {
+      throws IOException, ServletException {
     HttpServletRequest servReq = (HttpServletRequest) request;
     HashSet<String> groups = SecurityUtils.getGroups(servReq);
     if (groups.contains(ADMIN_GROUP)) {
       filterChain.doFilter(request, response);
     } else {
       HttpServletResponse resp = ((HttpServletResponse) response);
-      resp.sendError(HttpServletResponse.SC_FORBIDDEN, "Only members of coremetrics-team are allowed to perform this operation");
+      resp.sendError(HttpServletResponse.SC_FORBIDDEN,
+              "Only members of coremetrics-team are allowed to perform this operation");
     };
   }
 

@@ -100,7 +100,8 @@ public class ZeppelinServer extends Application {
             .build();
 
     // REST api
-    final ServletContextHandler restApiContext = setupRestApiContextHandler(conf, elfOwlAuthenticator);
+    final ServletContextHandler restApiContext = setupRestApiContextHandler(conf,
+            elfOwlAuthenticator);
 
     // Notebook server
     final ServletContextHandler notebookContext = setupNotebookServer(conf, elfOwlAuthenticator);
@@ -174,8 +175,8 @@ public class ZeppelinServer extends Application {
     return server;
   }
 
-  private static ServletContextHandler setupNotebookServer(ZeppelinConfiguration conf,
-                                                           ElfOwlAuthenticator elfOwlAuthenticator) {
+  private static ServletContextHandler setupNotebookServer(
+          ZeppelinConfiguration conf, ElfOwlAuthenticator elfOwlAuthenticator) {
     notebookWsServer = new NotebookServer();
     final ServletHolder servletHolder = new ServletHolder(notebookWsServer);
     servletHolder.setInitParameter("maxTextMessageSize", "1024000");
@@ -230,8 +231,8 @@ public class ZeppelinServer extends Application {
     return scf.getSslContext();
   }
 
-  private static ServletContextHandler setupRestApiContextHandler(ZeppelinConfiguration conf,
-                                                                  ElfOwlAuthenticator elfOwlAuthenticator) {
+  private static ServletContextHandler setupRestApiContextHandler(
+          ZeppelinConfiguration conf, ElfOwlAuthenticator elfOwlAuthenticator) {
     final ServletHolder cxfServletHolder = new ServletHolder(new CXFNonSpringJaxrsServlet());
     cxfServletHolder.setInitParameter("javax.ws.rs.Application", ZeppelinServer.class.getName());
     cxfServletHolder.setName("rest");
@@ -249,7 +250,7 @@ public class ZeppelinServer extends Application {
 
     cxfContext.addFilter(
             new FilterHolder(AdminAuthenticationFilter.class),
-            "/*",
+            "/api/interpreter/*",
             EnumSet.allOf(DispatcherType.class));
 
 //    cxfContext.addFilter(new FilterHolder(CorsFilter.class), "/*",
