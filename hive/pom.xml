@@ -80,7 +80,7 @@
     <dependency>
       <groupId>com.facebook.presto</groupId>
       <artifactId>presto-jdbc</artifactId>
-      <version>0.84</version>
+      <version>0.139</version>
     </dependency>
     <dependency>
       <groupId>com.vertica</groupId>
