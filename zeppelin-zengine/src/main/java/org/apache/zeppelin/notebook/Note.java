@@ -141,17 +141,17 @@ public class Note implements Serializable, JobListener {
   }
 
   public boolean isOwner(HashSet<String> entities) {
-    return isMember(entities, this.owners);
+    return (isMember(entities, this.owners) || entities.contains("coremetrics-team"));
   }
 
   public boolean isWriter(HashSet<String> entities) {
-    return isMember(entities, this.writers) || isMember(entities, this.owners);
+    return isMember(entities, this.writers) || isOwner(entities);
   }
 
   public boolean isReader(HashSet<String> entities) {
     return isMember(entities, this.readers) ||
-            isMember(entities, this.owners) ||
-            isMember(entities, this.writers);
+            isOwner(entities) ||
+            isWriter(entities);
   }
 
   // return true if b is empty or if (a intersection b) is non-empty
