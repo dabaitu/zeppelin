@@ -286,6 +286,14 @@ public class ZeppelinConfiguration extends XMLConfiguration {
     return keyStorePath;
   }
 
+  public int getSslRedirectFrom() {
+    return getInt(ConfVars.ZEPPELIN_SSL_REDIRECT_FROM);
+  }
+
+  public int getSslRedirectTo() {
+    return getInt(ConfVars.ZEPPELIN_SSL_REDIRECT_TO);
+  }
+
   public String getKeyStoreType() {
     return getString(ConfVars.ZEPPELIN_SSL_KEYSTORE_TYPE);
   }
@@ -408,6 +416,8 @@ public class ZeppelinConfiguration extends XMLConfiguration {
     ZEPPELIN_SERVER_CONTEXT_PATH("zeppelin.server.context.path", "/"),
     ZEPPELIN_SSL("zeppelin.ssl", false),
     ZEPPELIN_SSL_CLIENT_AUTH("zeppelin.ssl.client.auth", false),
+    ZEPPELIN_SSL_REDIRECT_FROM("zeppelin.ssl.redirect.from", 8080),
+    ZEPPELIN_SSL_REDIRECT_TO("zeppelin.ssl.redirect.to", 8443),
     ZEPPELIN_SSL_KEYSTORE_PATH("zeppelin.ssl.keystore.path", "keystore"),
     ZEPPELIN_SSL_KEYSTORE_TYPE("zeppelin.ssl.keystore.type", "JKS"),
     ZEPPELIN_SSL_KEYSTORE_PASSWORD("zeppelin.ssl.keystore.password", ""),

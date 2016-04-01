@@ -48,6 +48,7 @@ import org.apache.zeppelin.socket.NotebookServer;
 import org.eclipse.jetty.server.AbstractConnector;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.ContextHandlerCollection;
 import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.eclipse.jetty.server.session.SessionHandler;
@@ -111,7 +112,15 @@ public class ZeppelinServer extends Application {
 
     // add all handlers
     ContextHandlerCollection contexts = new ContextHandlerCollection();
-    contexts.setHandlers(new Handler[]{restApiContext, notebookContext, webApp});
+
+    if (conf.useSsl()) {
+      ContextHandler redirectHandler = new ContextHandler();
+      redirectHandler.setContextPath("/");
+      redirectHandler.setHandler(new SecureSchemeHandler(conf.getSslRedirectTo()));
+      contexts.setHandlers(new Handler[]{redirectHandler, restApiContext, notebookContext, webApp});
+    } else {
+      contexts.setHandlers(new Handler[]{restApiContext, notebookContext, webApp});
+    }
 
     jettyWebServer = setupJettyServer(conf);
     jettyWebServer.setHandler(contexts);
@@ -156,8 +165,13 @@ public class ZeppelinServer extends Application {
 
   private static Server setupJettyServer(ZeppelinConfiguration conf) {
     AbstractConnector connector;
+    final Server server = new Server();
     if (conf.useSsl()) {
       connector = new SslSelectChannelConnector(getSslContextFactory(conf));
+      AbstractConnector httpConnector;
+      httpConnector = new SelectChannelConnector();
+      httpConnector.setPort(conf.getSslRedirectFrom());
+      server.addConnector(httpConnector);
     } else {
       connector = new SelectChannelConnector();
     }
@@ -169,9 +183,7 @@ public class ZeppelinServer extends Application {
     connector.setHost(conf.getServerAddress());
     connector.setPort(conf.getServerPort());
 
-    final Server server = new Server();
     server.addConnector(connector);
-
     return server;
   }
 
