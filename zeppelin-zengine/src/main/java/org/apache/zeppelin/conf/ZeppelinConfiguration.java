@@ -17,6 +17,9 @@
 
 package org.apache.zeppelin.conf;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
@@ -270,10 +273,17 @@ public class ZeppelinConfiguration extends XMLConfiguration {
   }
 
   public String getKeyStorePath() {
-    return getRelativeDir(
-            String.format("%s/%s",
-                    getConfDir(),
-                    getString(ConfVars.ZEPPELIN_SSL_KEYSTORE_PATH)));
+    String keyStorePath = null;
+    String confPath = getString(ConfVars.ZEPPELIN_SSL_KEYSTORE_PATH);
+    if (confPath.startsWith("/")) {
+      keyStorePath = confPath;
+    } else {
+      keyStorePath = getRelativeDir(
+              String.format("%s/%s",
+                      getConfDir(),
+                      getString(ConfVars.ZEPPELIN_SSL_KEYSTORE_PATH)));
+    }
+    return keyStorePath;
   }
 
   public String getKeyStoreType() {
@@ -281,7 +291,21 @@ public class ZeppelinConfiguration extends XMLConfiguration {
   }
 
   public String getKeyStorePassword() {
-    return getString(ConfVars.ZEPPELIN_SSL_KEYSTORE_PASSWORD);
+    String passwordFile = getString(ConfVars.ZEPPELIN_SSL_KEYSTORE_PASSWORD_PATH);
+    String password = null;
+    if (passwordFile == null) {
+      password = getString(ConfVars.ZEPPELIN_SSL_KEYSTORE_PASSWORD);
+    } else {
+      try {
+        FileInputStream fis = new FileInputStream(passwordFile);
+        BufferedReader br = new BufferedReader(new InputStreamReader(fis));
+        password = br.readLine();
+        br.close();
+      } catch (Exception e) {
+        LOG.error("Cannot read keystore password from file");
+      }
+    }
+    return password;
   }
 
   public String getKeyManagerPassword() {
@@ -387,6 +411,7 @@ public class ZeppelinConfiguration extends XMLConfiguration {
     ZEPPELIN_SSL_KEYSTORE_PATH("zeppelin.ssl.keystore.path", "keystore"),
     ZEPPELIN_SSL_KEYSTORE_TYPE("zeppelin.ssl.keystore.type", "JKS"),
     ZEPPELIN_SSL_KEYSTORE_PASSWORD("zeppelin.ssl.keystore.password", ""),
+    ZEPPELIN_SSL_KEYSTORE_PASSWORD_PATH("zeppelin.ssl.keystore.password.path", null),
     ZEPPELIN_SSL_KEY_MANAGER_PASSWORD("zeppelin.ssl.key.manager.password", null),
     ZEPPELIN_SSL_TRUSTSTORE_PATH("zeppelin.ssl.truststore.path", null),
     ZEPPELIN_SSL_TRUSTSTORE_TYPE("zeppelin.ssl.truststore.type", null),
