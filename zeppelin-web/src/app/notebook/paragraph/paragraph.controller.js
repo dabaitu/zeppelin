@@ -208,6 +208,7 @@ angular.module('zeppelinWebApp')
       $scope.paragraph.status = data.paragraph.status;
       $scope.paragraph.result = data.paragraph.result;
       $scope.paragraph.settings = data.paragraph.settings;
+      $scope.paragraph.executingUser = data.paragraph.executingUser;
 
       if (!$scope.asIframe) {
         $scope.paragraph.config = data.paragraph.config;
@@ -751,7 +752,7 @@ angular.module('zeppelinWebApp')
       }
       return '';
     }
-    var desc = 'Took ' + (timeMs/1000) + ' seconds';
+    var desc = 'Took ' + (timeMs/1000) + ' seconds. Last executed by ' + pdata.executingUser + ' at ' + pdata.dateStarted;
     if ($scope.isResultOutdated()){
       desc += ' (outdated)';
     }

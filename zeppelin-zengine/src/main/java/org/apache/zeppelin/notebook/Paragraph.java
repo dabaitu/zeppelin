@@ -17,6 +17,9 @@
 
 package org.apache.zeppelin.notebook;
 
+import org.apache.zeppelin.credential.Credentials;
+import org.apache.zeppelin.credential.UserCredentials;
+import org.apache.zeppelin.credential.UsernamePassword;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.GUI;
 import org.apache.zeppelin.display.Input;
@@ -242,9 +245,14 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     logger().debug("RUN : " + script);
     try {
       InterpreterContext context = getInterpreterContext();
+      String dataSourceKey = getDataSourceKey(getScriptBody());
+      if (context.getPassword() == null) {
+        logger().info("Password for user {} missing for data source {}",
+                executingUser, dataSourceKey);
+      }
       InterpreterContext.set(context);
       InterpreterResult ret = repl.interpret(script, context);
-      logger().info("Interpreter context: Executing User" + context.getExecutingUser());
+      logger().info("Interpreter context: Executing User: " + context.getExecutingUser());
 
       if (Code.KEEP_PREVIOUS_RESULT == ret.code()) {
         return getReturn();
@@ -267,8 +275,39 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     return true;
   }
 
+  /**
+   * Returns the property key of the specific data source
+   * e.g. getDataSourceKey("%hive(vertica-smf1)") -> "vertica-smf1"
+   * @param cmd
+   * @return property key of data source being queried
+   */
+  public static String getDataSourceKey(String cmd) {
+    if (cmd == null) {
+      return null;
+    }
+    int firstLineIndex = cmd.indexOf("\n");
+    if (-1 == firstLineIndex) {
+      firstLineIndex = cmd.length();
+    }
+    int configStartIndex = cmd.indexOf("(");
+    int configLastIndex = cmd.indexOf(")");
+    if (configStartIndex != -1 && configLastIndex != -1
+        && configLastIndex < firstLineIndex && configLastIndex < firstLineIndex) {
+      return cmd.substring(configStartIndex + 1, configLastIndex);
+    }
+    return null;
+  }
+
   private InterpreterContext getInterpreterContext() {
     AngularObjectRegistry registry = null;
+    String password = null;
+    Credentials credentials = Credentials.getCredentials();
+    String dataSourceKey = null;
+    try {
+      dataSourceKey = getDataSourceKey(getScriptBody());
+    } catch (NullPointerException e) {
+      logger().info("NPE at dataSourceKey({}). cmd = {}", dataSourceKey, getScriptBody());
+    }
 
     if (!getNoteReplLoader().getInterpreterSettings().isEmpty()) {
       InterpreterSetting intpGroup = getNoteReplLoader().getInterpreterSettings().get(0);
@@ -280,6 +319,15 @@ public class Paragraph extends Job implements Serializable, Cloneable {
       runners.add(new ParagraphRunner(note, note.id(), p.getId()));
     }
 
+    UserCredentials userCredentials = credentials.getUserCredentials(executingUser);
+    if (userCredentials != null) {
+      UsernamePassword userPassword = userCredentials.getUsernamePassword(dataSourceKey);
+      if (userPassword != null) {
+        executingUser = userPassword.getUsername();
+        password = userPassword.getPassword();
+      }
+    }
+
     InterpreterContext interpreterContext = new InterpreterContext(
             note.id(),
             getId(),
@@ -289,7 +337,8 @@ public class Paragraph extends Job implements Serializable, Cloneable {
             this.settings,
             registry,
             runners,
-            executingUser);
+            executingUser,
+            password);
     return interpreterContext;
   }
 

@@ -63,6 +63,10 @@ angular.module('zeppelinWebApp', [
         templateUrl: 'app/interpreter/interpreter.html',
         controller: 'InterpreterCtrl'
       })
+      .when('/credential', {
+        templateUrl: 'app/credential/credential.html',
+        controller: 'CredentialCtrl'
+      })
       .when('/search/:searchTerm', {
         templateUrl: 'app/search/result-list.html',
         controller: 'SearchResultCtrl'

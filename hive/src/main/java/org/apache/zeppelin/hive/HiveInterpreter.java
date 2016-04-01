@@ -23,11 +23,9 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -40,7 +38,6 @@ import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.google.common.base.Objects;
 
 import static org.apache.commons.lang.StringUtils.containsIgnoreCase;
 
@@ -75,36 +72,6 @@ public class HiveInterpreter extends Interpreter {
   static final String DEFAULT_PASSWORD = DEFAULT_KEY + DOT + PASSWORD_KEY;
 
   private final HashMap<String, Properties> propertiesMap;
-  private final Map<String, Statement> paragraphIdStatementMap;
-
-  private final Map<String, Map<String, ArrayList<Connection>>> propertyKeyUnusedConnectionListMap;
-  private final Map<ParagraphUser, Connection> paragraphUserConnectionMap;
-
-  /**
-   * Executing User and ParagraphId Tuple
-   */
-  public class ParagraphUser {
-    public String executingUser;
-    public String paragraphId;
-
-    public ParagraphUser(String executingUser, String paragraphId) {
-      this.executingUser = executingUser;
-      this.paragraphId = paragraphId;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (obj == this) return true;
-      return obj instanceof ParagraphUser
-              && Objects.equal(paragraphId, ((ParagraphUser) obj).paragraphId)
-              && Objects.equal(executingUser, ((ParagraphUser) obj).executingUser);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(this.executingUser, this.paragraphId);
-    }
-  }
 
   static {
     Interpreter.register(
@@ -122,9 +89,6 @@ public class HiveInterpreter extends Interpreter {
   public HiveInterpreter(Properties property) {
     super(property);
     propertiesMap = new HashMap<>();
-    propertyKeyUnusedConnectionListMap = new HashMap<>();
-    paragraphIdStatementMap = new HashMap<>();
-    paragraphUserConnectionMap = new HashMap<>();
   }
 
   public HashMap<String, Properties> getPropertiesMap() {
@@ -170,126 +134,24 @@ public class HiveInterpreter extends Interpreter {
     logger.debug("propertiesMap: {}", propertiesMap);
   }
 
-  @Override
-  public void close() {
-    try {
-      for (Map<String, ArrayList<Connection>> userConnectionMap:
-              propertyKeyUnusedConnectionListMap.values()) {
-        for (List<Connection> connectionList : userConnectionMap.values()) {
-          for (Connection c : connectionList) {
-            c.close();
-          }
-        }
-      }
-
-      for (Statement statement : paragraphIdStatementMap.values()) {
-        statement.close();
-      }
-      paragraphIdStatementMap.clear();
-
-      for (Connection connection : paragraphUserConnectionMap.values()) {
-        connection.close();
-      }
-      paragraphUserConnectionMap.clear();
-
-    } catch (SQLException e) {
-      logger.error("Error while closing...", e);
-    }
-  }
-
-  public Connection getConnection(String propertyKey, String executingUser)
-      throws ClassNotFoundException, SQLException {
+  public InterpreterResult executeSql(String propertyKey, String sql,
+                                      InterpreterContext interpreterContext) {
+    String executingUser = interpreterContext.getExecutingUser();
+    String password = interpreterContext.getPassword();
     Connection connection = null;
-    logger.info("Connection Map {}", propertyKeyUnusedConnectionListMap);
-    if (propertyKeyUnusedConnectionListMap.containsKey(propertyKey)) {
-      Map<String, ArrayList<Connection>> usersConnectionMap =
-              propertyKeyUnusedConnectionListMap.get(propertyKey);
-      if (usersConnectionMap != null) {
-        ArrayList<Connection> connectionList = usersConnectionMap.get(executingUser);
-        if (null != connectionList && 0 != connectionList.size()) {
-          connection = connectionList.remove(0);
-          logger.info("Connection retrieved: {}", connection);
-          if (null != connection && connection.isClosed()) {
-            connection.close();
-            connection = null;
-          }
-        }
-      }
-    }
-    if (null == connection) {
+    Statement statement = null;
+    try {
       Properties properties = propertiesMap.get(propertyKey);
       Class.forName(properties.getProperty(DRIVER_KEY));
       String url = properties.getProperty(URL_KEY);
       String user;
-      String password;
-      if (propertyKey.contains("vertica")) {
-        user = System.getenv("ZEPPELIN_VERTICA_USER");
-        password = System.getenv("ZEPPELIN_VERTICA_PASSWORD");
-      } else if (propertyKey.contains("presto")) {
-        user = executingUser;
-        logger.info("User {}", executingUser);
-        password = null;
-      } else if (propertyKey.contains("mysql-birdbrain")) {
-        user = System.getenv("ZEPPELIN_MYSQL_BIRDBRAIN_USER");
-        password = System.getenv("ZEPPELIN_MYSQL_BIRDBRAIN_PASSWORD");
-      } else if (propertyKey.contains("mysql-fabric")) {
-        user = System.getenv("ZEPPELIN_MYSQL_FABRIC_USER");
-        password = System.getenv("ZEPPELIN_MYSQL_FABRIC_PASSWORD");
-      } else {
-        user = properties.getProperty(USER_KEY);
-        password = properties.getProperty(PASSWORD_KEY);
-      }
+      user = executingUser;
       if (null != user) {
         connection = DriverManager.getConnection(url, user, password);
       } else {
         connection = DriverManager.getConnection(url, properties);
       }
-    }
-    return connection;
-  }
-
-  public Statement getStatement(String propertyKey, ParagraphUser paragraphUser)
-      throws SQLException, ClassNotFoundException {
-    Connection connection;
-
-    logger.info("PropertyKeyUnusedConnection Map {}", propertyKeyUnusedConnectionListMap);
-    if (paragraphUserConnectionMap.containsKey(paragraphUser)) {
-      // Never enter for now.
-      connection = paragraphUserConnectionMap.get(paragraphUser);
-    } else {
-      connection = getConnection(propertyKey, paragraphUser.executingUser);
-    }
-
-    Statement statement = connection.createStatement();
-    if (isStatementClosed(statement)) {
-      connection = getConnection(propertyKey, paragraphUser.executingUser);
       statement = connection.createStatement();
-    }
-    paragraphUserConnectionMap.put(paragraphUser, connection);
-    paragraphIdStatementMap.put(paragraphUser.paragraphId, statement);
-
-    return statement;
-  }
-
-  private boolean isStatementClosed(Statement statement) {
-    try {
-      return statement.isClosed();
-    } catch (Throwable t) {
-      logger.debug("{} doesn't support isClosed method", statement);
-      return false;
-    }
-  }
-
-  public InterpreterResult executeSql(String propertyKey, String sql,
-                                      InterpreterContext interpreterContext) {
-    String paragraphId = interpreterContext.getParagraphId();
-    String executingUser = interpreterContext.getExecutingUser();
-    ParagraphUser paragraphUser = new ParagraphUser(executingUser, paragraphId);
-    boolean connectionClosedException = false;
-
-    try {
-
-      Statement statement = getStatement(propertyKey, paragraphUser);
 
       statement.setMaxRows(getMaxResult());
 
@@ -336,28 +198,15 @@ public class HiveInterpreter extends Interpreter {
           msg.append(UPDATE_COUNT_HEADER).append(NEWLINE);
           msg.append(updateCount).append(NEWLINE);
         }
-      } catch (SQLException ex) {
-        logger.error("Cannot run " + sql, ex);
-        if (ex.getMessage().contains("java.sql.SQLException: " +
-                "[Vertica][VJDBC](100161) The connection is closed")) {
-          logger.error("Set connectionClosedException = true");
-          connectionClosedException = true;
-        }
-        return new InterpreterResult(Code.ERROR, ex.getMessage());
       } finally {
-        try {
-          if (resultSet != null) {
-            resultSet.close();
-          }
+        if (resultSet != null) {
+          resultSet.close();
+        }
+        if (statement != null) {
           statement.close();
-        } finally {
-          // reuse connection if and only if connectionClosedException is false
-          if (!connectionClosedException) {
-            logger.info("moveConnectionToUnused");
-            moveConnectionToUnused(propertyKey, paragraphUser);
-          } else {
-            logger.error("Do not moveConnectionToUnused");
-          }
+        }
+        if (connection != null) {
+          connection.close();
         }
       }
 
@@ -366,33 +215,6 @@ public class HiveInterpreter extends Interpreter {
     } catch (SQLException | ClassNotFoundException ex) {
       logger.error("Cannot run " + sql, ex);
       return new InterpreterResult(Code.ERROR, ex.getMessage());
-    }
-  }
-
-  private void moveConnectionToUnused(String propertyKey, ParagraphUser paragraphUser) {
-    if (paragraphUserConnectionMap.containsKey(paragraphUser)) {
-      Connection connection = paragraphUserConnectionMap.remove(paragraphUser);
-      logger.info("Connection {} for user: " + paragraphUser.executingUser +
-              "moved to unusedConnections", connection);
-      if (null != connection) {
-        Map<String, ArrayList<Connection>> userConnectionMap =
-                propertyKeyUnusedConnectionListMap.get(propertyKey);
-        if (userConnectionMap == null) {
-          userConnectionMap = new HashMap<>();
-          propertyKeyUnusedConnectionListMap.put(propertyKey, userConnectionMap);
-        }
-        if (userConnectionMap.containsKey(paragraphUser.executingUser)) {
-          userConnectionMap.get(paragraphUser.executingUser).add(connection);
-        } else {
-          ArrayList<Connection> connectionList = new ArrayList<>();
-          connectionList.add(connection);
-          userConnectionMap.put(paragraphUser.executingUser, connectionList);
-          logger.info("Added " + propertyKey + "-> " + paragraphUser.executingUser + "-> " +
-                  paragraphUser.paragraphId);
-        }
-      }
-      logger.info("ConnectionMap after recycling connection {}",
-              propertyKeyUnusedConnectionListMap);
     }
   }
 
@@ -408,8 +230,8 @@ public class HiveInterpreter extends Interpreter {
 
     cmd = cmd.trim();
 
-    logger.info("PropertyKey: {}, SQL command: '{}', User: {}", propertyKey, cmd,
-            contextInterpreter.getExecutingUser());
+    logger.info("PropertyKey: {} User: {} SQL command: '{}'", propertyKey,
+            contextInterpreter.getExecutingUser(), cmd);
 
     return executeSql(propertyKey, cmd, contextInterpreter);
   }
@@ -434,23 +256,22 @@ public class HiveInterpreter extends Interpreter {
   }
 
   @Override
-  public void cancel(InterpreterContext context) {
-    String paragraphId = context.getParagraphId();
-    try {
-      paragraphIdStatementMap.get(paragraphId).cancel();
-    } catch (SQLException e) {
-      logger.error("Error while cancelling...", e);
-    }
-  }
+  public void close() {
 
-  @Override
-  public FormType getFormType() {
-    return FormType.SIMPLE;
   }
 
   @Override
   public int getProgress(InterpreterContext context) {
     return 0;
+  }
+
+  @Override
+  public  void cancel(InterpreterContext context) {};
+
+
+  @Override
+  public FormType getFormType() {
+    return FormType.SIMPLE;
   }
 
   @Override

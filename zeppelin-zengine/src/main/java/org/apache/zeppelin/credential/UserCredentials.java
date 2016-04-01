@@ -15,23 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.zeppelin.interpreter;
+package org.apache.zeppelin.credential;
 
-import static org.junit.Assert.*;
+import java.util.HashMap;
+import java.util.Map;
 
-import org.junit.Test;
+/**
+ * User Credentials POJO
+ */
+public class UserCredentials {
+  private Map<String, UsernamePassword> userCredentials;
 
-public class InterpreterContextTest {
-
-  @Test
-  public void testThreadLocal() {
-    assertNull(InterpreterContext.get());
-
-    InterpreterContext.set(new InterpreterContext(null, null, null, null, null, null, null, null, null, null));
-    assertNotNull(InterpreterContext.get());
-
-    InterpreterContext.remove();
-    assertNull(InterpreterContext.get());
+  public UserCredentials() {
+    this.userCredentials = new HashMap<>();
   }
 
+  public UsernamePassword getUsernamePassword(String dataSource) {
+    return userCredentials.get(dataSource);
+  }
+
+  public void putUsernamePassword(String dataSource, UsernamePassword up) {
+    userCredentials.put(dataSource, up);
+  }
+
+  @Override
+  public String toString() {
+    return "UserCredentials{" +
+        "userCredentials=" + userCredentials +
+        '}';
+  }
 }

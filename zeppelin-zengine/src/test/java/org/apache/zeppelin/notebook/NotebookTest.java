@@ -208,7 +208,7 @@ public class NotebookTest implements JobListenerFactory{
     p2.setConfig(config1);
     p2.setText("p2");
     assertEquals(null, p2.getResult());
-    note.runAll();
+    note.runAll(null);
 
     while(p2.isTerminated()==false || p2.getResult()==null) Thread.yield();
     assertEquals("repl1: p2", p2.getResult().message());
@@ -295,7 +295,7 @@ public class NotebookTest implements JobListenerFactory{
 
     final Paragraph p = note.addParagraph();
     p.setText("hello world");
-    note.runAll();
+    note.runAll(null);
     while(p.isTerminated()==false || p.getResult()==null) Thread.yield();
 
     p.setStatus(Status.RUNNING);
@@ -377,7 +377,7 @@ public class NotebookTest implements JobListenerFactory{
       assertEquals(Job.Status.READY, p.getStatus());
     }
 
-    note.runAll();
+    note.runAll(null);
 
     while (paragraphs.get(0).getStatus() != Status.FINISHED) Thread.yield();
 

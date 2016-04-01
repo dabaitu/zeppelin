@@ -393,11 +393,18 @@ public class Note implements Serializable, JobListener {
    * Run all paragraphs sequentially.
    *
    * @param jobListener
+   * @param cronExecutingUser
    */
-  public void runAll() {
+  public void runAll(String cronExecutingUser) {
+    LOG.info("Note: {} cronExecutingUser: {}", id, cronExecutingUser);
+    if (cronExecutingUser == null || cronExecutingUser.equals("")) {
+      LOG.error("Cannot run all paragraphs. cronExecutingUser: " + cronExecutingUser);
+      return;
+    }
     synchronized (paragraphs) {
       for (Paragraph p : paragraphs) {
         p.setNoteReplLoader(replLoader);
+        p.setExecutingUser(cronExecutingUser);
         p.setListener(jobListenerFactory.getParagraphJobListener(this));
         Interpreter intp = replLoader.get(p.getRequiredReplName());
         intp.getScheduler().submit(p);

@@ -26,6 +26,8 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.conf.ZeppelinConfiguration.ConfVars;
+import org.apache.zeppelin.credential.Credentials;
+import org.apache.zeppelin.credential.UserCredentials;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.AngularObjectRegistryListener;
@@ -355,7 +357,10 @@ public class NotebookServer extends WebSocketServlet implements
     conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
             "Insufficient privileges to read note.\n" +
                     "Allowed readers: " + note.getReaders().toString() + "\n" +
-                    "User belongs to: " + conn.getUserAndGroups().toString())));
+                    "User belongs to: " + conn.getUserAndGroups().toString()
+                    + "\n\n"
+                    + "Support contact: zeppelin-users@twitter.com or zeppelin hipchat"
+    )));
   }
 
   void writePermissionError(NotebookSocket conn, Note note)  throws IOException {
@@ -364,7 +369,10 @@ public class NotebookServer extends WebSocketServlet implements
     conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
             "Insufficient privileges to write note.\n" +
                     "Allowed writers: " + note.getWriters().toString() + "\n" +
-                    "User belongs to: " + conn.getUserAndGroups().toString())));
+                    "User belongs to: " + conn.getUserAndGroups().toString()
+                    + "\n\n"
+                    + "Support contact: zeppelin-users@twitter.com or zeppelin hipchat"
+    )));
   }
 
   private void sendNote(NotebookSocket conn, Notebook notebook,
@@ -416,6 +424,10 @@ public class NotebookServer extends WebSocketServlet implements
 
   private void updateNote(NotebookSocket conn, Notebook notebook, Message fromMessage)
       throws SchedulerException, IOException {
+    LOG.info("New operation from {} : {} : {} : {} : {}", conn.getRequest().getRemoteAddr(),
+            conn.getRequest().getRemotePort(),
+            conn.getUser(), fromMessage.op, fromMessage.get("id")
+    );
     String noteId = (String) fromMessage.get("id");
     String name = (String) fromMessage.get("name");
     Map<String, Object> config = (Map<String, Object>) fromMessage
@@ -435,6 +447,16 @@ public class NotebookServer extends WebSocketServlet implements
       broadcastNoteList();
     } else {
       boolean cronUpdated = isCronUpdated(config, note.getConfig());
+
+      String executingUser = (String) config.get("executingUser");
+      if (executingUser != null && !executingUser.equals(conn.getUser())) {
+        conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
+                "Cron executing user has to be the logged in user which is " + conn.getUser()
+                + "\n\n"
+                + "Support contact: zeppelin-users@twitter.com or zeppelin hipchat"
+        )));
+      }
+
       note.setName(name);
       note.setConfig(config);
       if (cronUpdated) {
@@ -790,18 +812,19 @@ public class NotebookServer extends WebSocketServlet implements
     String text = (String) fromMessage.get("paragraph");
 
     HashSet<String> userAndGroups = conn.getUserAndGroups();
-    if (p.getExtendedRequiredReplName(text).contains("vertica")) {
-      if (userAndGroups.contains("hadoop-nonpublic") ||
-              userAndGroups.contains("vert-ana-analytics-prod-ro")) {
-        LOG.info("Vertica query allowed for {} {}", conn.getUser(), userAndGroups);
-      } else {
-        LOG.info("Vertica query not allowed for {} {}", conn.getUser(), userAndGroups);
+    String replName = Paragraph.getExtendedRequiredReplName(text);
+    if (replName.contains("vertica") || replName.contains("mysql")) {
+      String dataSourceKey = Paragraph.getDataSourceKey(text);
+      UserCredentials userCredentials = Credentials.getCredentials()
+              .getUserCredentials(conn.getUser());
+      if (userCredentials == null || userCredentials.getUsernamePassword(dataSourceKey) == null) {
+        LOG.info("User Credentials for user {} not found for data source {}",
+                conn.getUser(), dataSourceKey);
         conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
-                "Insufficient privileges to run vertica query.\n\n" +
-                        "Allowed groups: hadoop-nonpublic vert-ana-analytics-prod-ro" + "\n\n" +
-                        "User belongs to: " + conn.getUserAndGroups().toString() + "\n\n" +
-                        "CW-1731 fix will allow access based on individual permissions"))
-        );
+                "User credentials for data source " + dataSourceKey + " not found. \n" +
+                "Please go to the Credentials tab in the menu at the top to update " +
+                "your credentials. \n\n" +
+                "Support contact: zeppelin-users@twitter.com or zeppelin hipchat")));
         return;
       }
     }

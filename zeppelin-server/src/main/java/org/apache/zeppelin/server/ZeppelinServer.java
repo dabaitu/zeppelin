@@ -19,7 +19,6 @@ package org.apache.zeppelin.server;
 
 import com.twitter.common_internal.elfowl.ElfOwlAuthenticator;
 import com.twitter.common_internal.elfowl.ElfOwlFilter;
-import com.twitter.common_internal.elfowl.ElfOwlServlet;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,10 +33,12 @@ import javax.ws.rs.core.Application;
 import org.apache.cxf.jaxrs.servlet.CXFNonSpringJaxrsServlet;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.conf.ZeppelinConfiguration.ConfVars;
+import org.apache.zeppelin.credential.Credentials;
 import org.apache.zeppelin.interpreter.InterpreterFactory;
 import org.apache.zeppelin.notebook.Notebook;
 import org.apache.zeppelin.notebook.repo.NotebookRepo;
 import org.apache.zeppelin.notebook.repo.NotebookRepoSync;
+import org.apache.zeppelin.rest.CredentialRestApi;
 import org.apache.zeppelin.rest.InterpreterRestApi;
 import org.apache.zeppelin.rest.NotebookRestApi;
 import org.apache.zeppelin.rest.ZeppelinRestApi;
@@ -86,8 +87,9 @@ public class ZeppelinServer extends Application {
     this.notebookRepo = new NotebookRepoSync(conf);
     this.notebookIndex = new LuceneSearch();
 
-    notebook = new Notebook(conf, 
+    notebook = new Notebook(conf,
         notebookRepo, schedulerFactory, replFactory, notebookWsServer, notebookIndex);
+
   }
 
   public static void main(String[] args) throws InterruptedException {
@@ -323,6 +325,9 @@ public class ZeppelinServer extends Application {
 
     InterpreterRestApi interpreterApi = new InterpreterRestApi(replFactory);
     singletons.add(interpreterApi);
+
+    CredentialRestApi credentialApi = new CredentialRestApi();
+    singletons.add(credentialApi);
 
     return singletons;
   }

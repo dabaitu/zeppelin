@@ -412,9 +412,11 @@ public class Notebook {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
 
+      Logger log = LoggerFactory.getLogger(CronJob.class);
       String noteId = context.getJobDetail().getJobDataMap().getString("noteId");
       Note note = notebook.getNote(noteId);
-      note.runAll();
+      String executingUser = (String) note.getConfig().get("executingUser");
+      note.runAll(executingUser);
     
       while (!note.getLastParagraph().isTerminated()) {
         try {
@@ -426,9 +428,12 @@ public class Notebook {
       
       boolean releaseResource = false;
       try {
+        log.info("noteConfig {}", note.getConfig());
         releaseResource = (boolean) note.getConfig().get("releaseresource");
       } catch (java.lang.ClassCastException e) {
         e.printStackTrace();
+      } catch (java.lang.NullPointerException e) {
+        log.info("Config {}", note.getConfig());
       }
       if (releaseResource) {
         for (InterpreterSetting setting : note.getNoteReplLoader().getInterpreterSettings()) {

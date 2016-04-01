@@ -398,7 +398,7 @@ public class ZeppelinRestApiTest extends AbstractTestRestApi {
     note.persist();
     String noteID = note.getId();
 
-    note.runAll();
+    note.runAll(null);
     // wait until job is finished or timeout.
     int timeout = 1;
     while (!paragraph.isTerminated()) {
@@ -453,7 +453,7 @@ public class ZeppelinRestApiTest extends AbstractTestRestApi {
     note.persist();
     String noteID = note.getId();
 
-    note.runAll();
+    note.runAll(null);
 
     // wait until paragraph gets started
     while (!paragraph.getStatus().isRunning()) {
@@ -506,7 +506,7 @@ public class ZeppelinRestApiTest extends AbstractTestRestApi {
     note.persist();
     String noteID = note.getId();
 
-    note.runAll();
+    note.runAll(null);
     // wait until job is finished or timeout.
     int timeout = 1;
     while (!paragraph.isTerminated()) {
@@ -547,7 +547,7 @@ public class ZeppelinRestApiTest extends AbstractTestRestApi {
     config.put("enabled", true);
     paragraph.setConfig(config);
 
-    note.runAll();
+    note.runAll(null);
     // wait until job is finished or timeout.
     int timeout = 1;
     while (!paragraph.isTerminated()) {

@@ -282,6 +282,12 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
     $scope.setConfig();
   };
 
+  /** Set the username of the user to be used to execute all notes in notebook **/
+  $scope.setCronExecutingUser = function(executingUser) {
+    $scope.note.config.executingUser = executingUser;
+    $scope.setConfig();
+  };
+
   /** Set release resource for this note **/
   $scope.setReleaseResource = function(value) {
     $scope.note.config.releaseresource = value;

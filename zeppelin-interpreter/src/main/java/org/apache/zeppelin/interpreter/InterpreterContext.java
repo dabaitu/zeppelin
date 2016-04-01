@@ -51,6 +51,7 @@ public class InterpreterContext {
   private AngularObjectRegistry angularObjectRegistry;
   private List<InterpreterContextRunner> runners;
   private String executingUser;
+  private String password;
 
   public InterpreterContext(String noteId,
                             String paragraphId,
@@ -60,7 +61,8 @@ public class InterpreterContext {
                             GUI gui,
                             AngularObjectRegistry angularObjectRegistry,
                             List<InterpreterContextRunner> runners,
-                            String executingUser) {
+                            String executingUser,
+                            String password) {
     this.noteId = noteId;
     this.paragraphId = paragraphId;
     this.paragraphTitle = paragraphTitle;
@@ -70,6 +72,7 @@ public class InterpreterContext {
     this.angularObjectRegistry = angularObjectRegistry;
     this.runners = runners;
     this.executingUser = executingUser;
+    this.password = password;
   }
 
 
@@ -112,4 +115,13 @@ public class InterpreterContext {
   public void setExecutingUser(String executingUser) {
     this.executingUser = executingUser;
   }
+
+  public String getPassword() {
+    return password;
+  }
+
+  public void setPassword(String password) {
+    this.password = password;
+  }
+
 }

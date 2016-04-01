@@ -25,9 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -37,8 +35,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
-import com.google.common.collect.Sets;
-import com.twitter.common_internal.elfowl.Cookie;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.interpreter.InterpreterSetting;
 import org.apache.zeppelin.notebook.Note;
@@ -430,7 +426,7 @@ public class NotebookRestApi {
       return new JsonResponse<>(Status.NOT_FOUND, "note not found.").build();
     }
     
-    note.runAll();
+    note.runAll(null);
     return new JsonResponse<>(Status.OK).build();
   }
 

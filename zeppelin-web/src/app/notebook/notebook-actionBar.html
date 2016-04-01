@@ -78,7 +78,7 @@ limitations under the License.
              tooltip-placement="bottom" tooltip="Run scheduler">
           <span class="fa fa-clock-o"></span> {{getCronOptionNameFromValue(note.config.cron)}}
         </div>
-        <ul class="dropdown-menu" role="menu" style="width:300px">
+        <ul class="dropdown-menu" role="menu" style="width:500px">
           <li>
             <div class="cron-preset-container">
               Run note with cron scheduler.
@@ -99,6 +99,13 @@ limitations under the License.
                 <p ng-show="note.info.cron" class="text-danger cron-info">
                   {{note.info.cron}}
                 </p>
+              </div>
+              <div>
+                <span>- Cron executing user (click enter in field to submit)</span>
+                <input type="text"
+                       ng-model="note.config.executingUser"
+                       ng-enter="setCronExecutingUser(note.config.executingUser)"
+                       dropdown-input ng-model-options="{ debounce: 1000 }" />
               </div>
               <div>
                 <span>- auto-restart interpreter on cron execution </span>

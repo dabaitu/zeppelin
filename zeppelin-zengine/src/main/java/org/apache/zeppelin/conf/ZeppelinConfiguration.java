@@ -294,6 +294,14 @@ public class ZeppelinConfiguration extends XMLConfiguration {
     return getInt(ConfVars.ZEPPELIN_SSL_REDIRECT_TO);
   }
 
+  public int getSslRedirectFrom() {
+    return getInt(ConfVars.ZEPPELIN_SSL_REDIRECT_FROM);
+  }
+
+  public int getSslRedirectTo() {
+    return getInt(ConfVars.ZEPPELIN_SSL_REDIRECT_TO);
+  }
+
   public String getKeyStoreType() {
     return getString(ConfVars.ZEPPELIN_SSL_KEYSTORE_TYPE);
   }
