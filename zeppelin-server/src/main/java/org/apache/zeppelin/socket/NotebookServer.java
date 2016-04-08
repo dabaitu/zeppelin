@@ -87,9 +87,10 @@ public class NotebookServer extends WebSocketServlet implements
 
   @Override
   public void onOpen(NotebookSocket conn) {
-    LOG.info("New connection from {} : {} : {}", conn.getRequest().getRemoteAddr(),
+    LOG.info("New connection from {} : {} : {} : {}", conn.getRequest().getRemoteAddr(),
         conn.getRequest().getRemotePort(),
-        conn.getUser()
+        conn.getUser(),
+        conn
     );
     connectedSockets.add(conn);
   }
@@ -100,16 +101,17 @@ public class NotebookServer extends WebSocketServlet implements
     try {
       Message messagereceived = deserializeMessage(msg);
       if (messagereceived.op != OP.PING) {
-        LOG.info("New operation from {} : {} : {} : {}", conn.getRequest().getRemoteAddr(),
+        LOG.info("New operation from {} : {} : {} : {} : {}", conn.getRequest().getRemoteAddr(),
                 conn.getRequest().getRemotePort(),
-                conn.getUser(), messagereceived.op
+                conn.getUser(), messagereceived.op,
+                conn
         );
       };
       LOG.debug("RECEIVE << " + messagereceived.op);
       /** Lets be elegant here */
       switch (messagereceived.op) {
           case LIST_NOTES:
-            broadcastNoteList();
+            broadcastNoteList(conn);
             break;
           case RELOAD_NOTES_FROM_REPO:
             broadcastReloadedNoteList();
@@ -165,7 +167,7 @@ public class NotebookServer extends WebSocketServlet implements
             angularObjectUpdated(conn, notebook, messagereceived);
             break;
           default:
-            broadcastNoteList();
+            //broadcastNoteList();
             break;
       }
     } catch (Exception e) {
@@ -257,21 +259,35 @@ public class NotebookServer extends WebSocketServlet implements
     }
   }
 
+  private void logConnection(NotebookSocket conn) {
+    LOG.info("Connection {} : {} : {} : {}",
+            conn,
+            conn.getUser(),
+            conn.getRequest().getRemoteAddr(),
+            conn.getRequest().getRemotePort());
+  }
+
   private void broadcast(String noteId, Message m) {
-    synchronized (noteSocketMap) {
-      List<NotebookSocket> socketLists = noteSocketMap.get(noteId);
-      if (socketLists == null || socketLists.size() == 0) {
-        return;
-      }
-      LOG.debug("SEND >> " + m.op);
-      for (NotebookSocket conn : socketLists) {
-        try {
-          conn.send(serializeMessage(m));
-        } catch (IOException e) {
-          LOG.error("socket error", e);
-        }
+    //synchronized (noteSocketMap) {
+    List<NotebookSocket> socketLists = noteSocketMap.get(noteId);
+    if (socketLists == null || socketLists.size() == 0) {
+      return;
+    }
+    LOG.debug("SEND >> " + m.op);
+    LOG.info("Printing all connections");
+    for (NotebookSocket conn : socketLists) {
+      logConnection(conn);
+    }
+    LOG.info("Sending to all connections");
+    for (NotebookSocket conn : socketLists) {
+      logConnection(conn);
+      try {
+        conn.send(serializeMessage(m));
+      } catch (IOException e) {
+        LOG.error("socket error", e);
       }
     }
+    //}
   }
 
   private void broadcastExcept(String noteId, Message m, NotebookSocket exclude) {
@@ -281,7 +297,13 @@ public class NotebookServer extends WebSocketServlet implements
         return;
       }
       LOG.debug("SEND >> " + m.op);
+      LOG.info("Printing all connections");
       for (NotebookSocket conn : socketLists) {
+        logConnection(conn);
+      }
+      LOG.info("Sending to all connections");
+      for (NotebookSocket conn : socketLists) {
+        logConnection(conn);
         if (exclude.equals(conn)) {
           continue;
         }
@@ -295,7 +317,13 @@ public class NotebookServer extends WebSocketServlet implements
   }
 
   private void broadcastAll(Message m) {
+    LOG.info("Printing all connections");
     for (NotebookSocket conn : connectedSockets) {
+      logConnection(conn);
+    }
+    LOG.info("Sending to all connections");
+    for (NotebookSocket conn : connectedSockets) {
+      logConnection(conn);
       try {
         conn.send(serializeMessage(m));
       } catch (IOException e) {
@@ -339,6 +367,18 @@ public class NotebookServer extends WebSocketServlet implements
 
   public void broadcastNote(Note note) {
     broadcast(note.id(), new Message(OP.NOTE).put("note", note));
+  }
+
+  public void broadcastNoteList(NotebookSocket conn) {
+    List<Map<String, String>> notesInfo = generateNotebooksInfo(false);
+    Message m = new Message(OP.NOTES_INFO).put("notes", notesInfo);
+    LOG.info("Printing current connection");
+    logConnection(conn);
+    try {
+      conn.send(serializeMessage(m));
+    } catch (IOException e) {
+      LOG.error("socket error", e);
+    }
   }
 
   public void broadcastNoteList() {
@@ -390,7 +430,6 @@ public class NotebookServer extends WebSocketServlet implements
     if (note != null) {
       if (!note.isReader(conn.getUserAndGroups())) {
         readPermissionEror(conn, note);
-        broadcastNoteList();
         return;
       }
       addConnectionToNote(note.id(), conn);
@@ -410,7 +449,6 @@ public class NotebookServer extends WebSocketServlet implements
     if (note != null) {
       if (!note.isReader(conn.getUserAndGroups())) {
         readPermissionEror(conn, note);
-        broadcastNoteList();
         return;
       }
       addConnectionToNote(note.id(), conn);
@@ -443,15 +481,14 @@ public class NotebookServer extends WebSocketServlet implements
     if (note == null) {
     } else if (!note.isWriter(conn.getUserAndGroups())) {
       writePermissionError(conn, note);
-      broadcastNote(note);
-      broadcastNoteList();
     } else {
       boolean cronUpdated = isCronUpdated(config, note.getConfig());
 
       String executingUser = (String) config.get("executingUser");
       if (executingUser != null && !executingUser.equals(conn.getUser())) {
         conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
-                "Cron executing user has to be the logged in user which is " + conn.getUser()
+                "Cron executing user is " + executingUser + "\n"
+                + "It has to be the logged in user which is " + conn.getUser()
                 + "\n\n"
                 + "Support contact: zeppelin-users@twitter.com or zeppelin hipchat"
         )));
@@ -465,7 +502,7 @@ public class NotebookServer extends WebSocketServlet implements
 
       note.persist();
       broadcastNote(note);
-      broadcastNoteList();
+      broadcastNoteList(conn);
     }
   }
 
@@ -502,7 +539,7 @@ public class NotebookServer extends WebSocketServlet implements
             conn.getUser(), message.op, note.id()
     );
     conn.send(serializeMessage(new Message(OP.NEW_NOTE).put("note", note)));
-    broadcastNoteList();
+    broadcastNoteList(conn);
   }
 
   private void removeNote(NotebookSocket conn, Notebook notebook, Message fromMessage)
@@ -519,7 +556,7 @@ public class NotebookServer extends WebSocketServlet implements
     }
     notebook.removeNote(noteId);
     removeNote(noteId);
-    broadcastNoteList();
+    broadcastNoteList(conn);
   }
 
   private void updateParagraph(NotebookSocket conn, Notebook notebook,
@@ -556,7 +593,7 @@ public class NotebookServer extends WebSocketServlet implements
     Note newNote = notebook.cloneNote(noteId, name);
     addConnectionToNote(newNote.id(), (NotebookSocket) conn);
     conn.send(serializeMessage(new Message(OP.NEW_NOTE).put("note", newNote)));
-    broadcastNoteList();
+    broadcastNoteList(conn);
   }
 
   protected Note importNote(NotebookSocket conn, Notebook notebook, Message fromMessage)
@@ -610,7 +647,7 @@ public class NotebookServer extends WebSocketServlet implements
 
     note.persist();
     broadcastNote(note);
-    broadcastNoteList();
+    broadcastNoteList(conn);
     return note;
   }
 
@@ -874,10 +911,10 @@ public class NotebookServer extends WebSocketServlet implements
 
     @Override
     public void onProgressUpdate(Job job, int progress) {
-      notebookServer.broadcast(
-          note.id(),
-          new Message(OP.PROGRESS).put("id", job.getId()).put("progress",
-              job.progress()));
+//      notebookServer.broadcast(
+//          note.id(),
+//          new Message(OP.PROGRESS).put("id", job.getId()).put("progress",
+//              job.progress()));
     }
 
     @Override
