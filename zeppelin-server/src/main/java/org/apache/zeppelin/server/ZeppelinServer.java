@@ -20,31 +20,20 @@ package org.apache.zeppelin.server;
 import com.twitter.common_internal.elfowl.ElfOwlAuthenticator;
 import com.twitter.common_internal.elfowl.ElfOwlFilter;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.Set;
-
-import javax.net.ssl.SSLContext;
-import javax.servlet.DispatcherType;
-import javax.ws.rs.core.Application;
-
 import org.apache.cxf.jaxrs.servlet.CXFNonSpringJaxrsServlet;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.conf.ZeppelinConfiguration.ConfVars;
 import org.apache.zeppelin.credential.Credentials;
+import org.apache.zeppelin.dep.DependencyResolver;
 import org.apache.zeppelin.interpreter.InterpreterFactory;
 import org.apache.zeppelin.notebook.Notebook;
+import org.apache.zeppelin.notebook.NotebookAuthorization;
 import org.apache.zeppelin.notebook.repo.NotebookRepo;
 import org.apache.zeppelin.notebook.repo.NotebookRepoSync;
-import org.apache.zeppelin.rest.CredentialRestApi;
-import org.apache.zeppelin.rest.InterpreterRestApi;
-import org.apache.zeppelin.rest.NotebookRestApi;
-import org.apache.zeppelin.rest.ZeppelinRestApi;
+import org.apache.zeppelin.rest.*;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
-import org.apache.zeppelin.search.SearchService;
 import org.apache.zeppelin.search.LuceneSearch;
+import org.apache.zeppelin.search.SearchService;
 import org.apache.zeppelin.socket.NotebookServer;
 import org.eclipse.jetty.server.AbstractConnector;
 import org.eclipse.jetty.server.Handler;
@@ -63,6 +52,15 @@ import org.eclipse.jetty.webapp.WebAppContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.net.ssl.SSLContext;
+import javax.servlet.DispatcherType;
+import javax.ws.rs.core.Application;
+import java.io.File;
+import java.io.IOException;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Main class of Zeppelin.
  *
@@ -78,21 +76,27 @@ public class ZeppelinServer extends Application {
   private InterpreterFactory replFactory;
   private NotebookRepo notebookRepo;
   private SearchService notebookIndex;
+  private NotebookAuthorization notebookAuthorization;
+  private DependencyResolver depResolver;
 
   public ZeppelinServer() throws Exception {
     ZeppelinConfiguration conf = ZeppelinConfiguration.create();
 
+    this.depResolver = new DependencyResolver(
+            conf.getString(ConfVars.ZEPPELIN_INTERPRETER_LOCALREPO));
     this.schedulerFactory = new SchedulerFactory();
-    this.replFactory = new InterpreterFactory(conf, notebookWsServer);
+    this.replFactory = new InterpreterFactory(conf, notebookWsServer,
+            notebookWsServer, depResolver);
     this.notebookRepo = new NotebookRepoSync(conf);
     this.notebookIndex = new LuceneSearch();
-
+    this.notebookAuthorization = new NotebookAuthorization(conf);
     notebook = new Notebook(conf,
-        notebookRepo, schedulerFactory, replFactory, notebookWsServer, notebookIndex);
-
+            notebookRepo, schedulerFactory, replFactory, notebookWsServer,
+            notebookIndex, notebookAuthorization);
   }
 
   public static void main(String[] args) throws InterruptedException {
+
     ZeppelinConfiguration conf = ZeppelinConfiguration.create();
     conf.setProperty("args", args);
 
@@ -157,6 +161,7 @@ public class ZeppelinServer extends Application {
       try {
         System.in.read();
       } catch (IOException e) {
+        LOG.error("Exception in ZeppelinServer while main ", e);
       }
       System.exit(0);
     }
@@ -192,8 +197,9 @@ public class ZeppelinServer extends Application {
   private static ServletContextHandler setupNotebookServer(
           ZeppelinConfiguration conf, ElfOwlAuthenticator elfOwlAuthenticator) {
     notebookWsServer = new NotebookServer();
+    String maxTextMessageSize = conf.getWebsocketMaxTextMessageSize();
     final ServletHolder servletHolder = new ServletHolder(notebookWsServer);
-    servletHolder.setInitParameter("maxTextMessageSize", "1024000");
+    servletHolder.setInitParameter("maxTextMessageSize", maxTextMessageSize);
 
     final ServletContextHandler cxfContext = new ServletContextHandler(
         ServletContextHandler.SESSIONS);
@@ -267,8 +273,14 @@ public class ZeppelinServer extends Application {
             "/api/interpreter/*",
             EnumSet.allOf(DispatcherType.class));
 
-//    cxfContext.addFilter(new FilterHolder(CorsFilter.class), "/*",
-//        EnumSet.allOf(DispatcherType.class));
+    cxfContext.setInitParameter("shiroConfigLocations",
+            new File(conf.getShiroPath()).toURI().toString());
+
+    cxfContext.addFilter(org.apache.shiro.web.servlet.ShiroFilter.class, "/*",
+            EnumSet.allOf(DispatcherType.class));
+
+    cxfContext.addEventListener(new org.apache.shiro.web.env.EnvironmentLoaderListener());
+
     return cxfContext;
   }
 
@@ -293,17 +305,16 @@ public class ZeppelinServer extends Application {
     }
 
     webApp.addFilter(
-        new FilterHolder(elfOwlAuthenticator.getElfOwlFilter()),
-        ElfOwlFilter.DEFAULT_ELFOWL_FILTER_PATH_SPEC,
-        EnumSet.allOf(DispatcherType.class));
-
+            new FilterHolder(elfOwlAuthenticator.getElfOwlFilter()),
+            ElfOwlFilter.DEFAULT_ELFOWL_FILTER_PATH_SPEC,
+            EnumSet.allOf(DispatcherType.class));
     webApp.addServlet(
-        new ServletHolder(elfOwlAuthenticator.getElfOwlServlet()),
-        elfOwlAuthenticator.getPostBackPath());
-
+            new ServletHolder(elfOwlAuthenticator.getElfOwlServlet()),
+            elfOwlAuthenticator.getPostBackPath());
     // Explicit bind to root
     webApp.addServlet(new ServletHolder(new DefaultServlet()), "/*");
     return webApp;
+
   }
 
   @Override
@@ -328,6 +339,15 @@ public class ZeppelinServer extends Application {
 
     CredentialRestApi credentialApi = new CredentialRestApi();
     singletons.add(credentialApi);
+
+    SecurityRestApi securityApi = new SecurityRestApi();
+    singletons.add(securityApi);
+
+    LoginRestApi loginRestApi = new LoginRestApi();
+    singletons.add(loginRestApi);
+
+    ConfigurationsRestApi settingsApi = new ConfigurationsRestApi(notebook);
+    singletons.add(settingsApi);
 
     return singletons;
   }

@@ -26,6 +26,7 @@ import java.util.Properties;
 
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.GUI;
+import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterContextRunner;
 import org.apache.zeppelin.interpreter.InterpreterGroup;
@@ -62,10 +63,10 @@ public class ScaldingInterpreterTest {
     }
 
     InterpreterGroup intpGroup = new InterpreterGroup();
-    context = new InterpreterContext("note", "id", "title", "text",
+    context = new InterpreterContext("note", "id", "title", "text", new AuthenticationInfo(),
         new HashMap<String, Object>(), new GUI(), new AngularObjectRegistry(
-            intpGroup.getId(), null),
-        new LinkedList<InterpreterContextRunner>(), null, null);
+            intpGroup.getId(), null), null,
+        new LinkedList<InterpreterContextRunner>(), null);
   }
 
   @After
@@ -85,6 +86,17 @@ public class ScaldingInterpreterTest {
       }
       file.delete();
     }
+  }
+
+  @Test
+  public void testNextLineComments() {
+    assertEquals(InterpreterResult.Code.SUCCESS, repl.interpret("\"123\"\n/*comment here\n*/.toInt", context).code());
+  }
+
+  @Test
+  public void testNextLineCompanionObject() {
+    String code = "class Counter {\nvar value: Long = 0\n}\n // comment\n\n object Counter {\n def apply(x: Long) = new Counter()\n}";
+    assertEquals(InterpreterResult.Code.SUCCESS, repl.interpret(code, context).code());
   }
 
   @Test

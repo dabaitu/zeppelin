@@ -24,7 +24,7 @@ limitations under the License.
  
  All REST APIs are available starting with the following endpoint ```http://[zeppelin-server]:[zeppelin-port]/api```
  
- Note that zeppelin REST APIs receive or return JSON objects, it is recommended for you to install some JSON viewer
+ Note that zeppelin REST APIs receive or return JSON objects, it is recommended for you to install some JSON viewers
   such as [JSONView](https://chrome.google.com/webstore/detail/jsonview/chklaanhfefbnpoihckbnefhakgolnmc)
  
  
@@ -33,7 +33,7 @@ limitations under the License.
  <br />
 ### Notebook REST API list
   
-  Notebooks REST API supports the following operations: List, Create, Get, Delete, Clone, Run as detailed in the following table 
+  Notebooks REST API supports the following operations: List, Create, Get, Delete, Clone, Run, Export, Import as detailed in the following table
   
   <table class="table-configuration">
     <col width="200">
@@ -772,4 +772,329 @@ limitations under the License.
       <td><pre>{"status":"OK","message":""}</pre></td>
     </tr>
   </table>
+
+  <table class="table-configuration">
+    <col width="200">
+    <tr>
+      <th>Full-text search through the paragraphs in all notebooks</th>
+      <th></th>
+    </tr>
+    <tr>
+      <td>Description</td>
+      <td>```GET``` request will return list of matching paragraphs
+      </td>
+    </tr>
+    <tr>
+      <td>URL</td>
+      <td>```http://[zeppelin-server]:[zeppelin-port]/api/notebook/search?q=[query]```</td>
+    </tr>
+    <tr>
+      <td>Success code</td>
+      <td>200</td>
+    </tr>
+    <tr>
+      <td>Fail code</td>
+      <td> 500 </td>
+    </tr>
+    <tr>
+      <td>Sample JSON response </td>
+      <td><pre>{"status":"OK", body: [{"id":"<noteId>/paragraph/<paragraphId>", "name":"Notebook Name", "snippet":"", "text":""}]}</pre></td>
+    </tr>
+  </table>
+
+<br/>
+
+
+  <table class="table-configuration">
+    <col width="200">
+    <tr>
+      <th>Create paragraph</th>
+      <th></th>
+    </tr>
+    <tr>
+      <td>Description</td>
+      <td>This ```POST``` method create a new paragraph using JSON payload.
+          The body field of the returned JSON contain the new paragraph id.
+      </td>
+    </tr>
+    <tr>
+      <td>URL</td>
+      <td>```http://[zeppelin-server]:[zeppelin-port]/api/notebook/[notebookId]/paragraph```</td>
+    </tr>
+    <tr>
+      <td>Success code</td>
+      <td>201</td>
+    </tr>
+    <tr>
+      <td> Fail code</td>
+      <td> 500 </td>
+    </tr>
+    <tr>
+      <td> sample JSON input (add to the last) </td>
+      <td><pre>
+  {
+    "title": "Paragraph insert revised",
+    "text": "%spark\nprintln(\"Paragraph insert revised\")"
+  }</pre></td>
+    </tr>
+    <tr>
+      <td> sample JSON input (add to specific index) </td>
+      <td><pre>
+  {
+    "title": "Paragraph insert revised",
+    "text": "%spark\nprintln(\"Paragraph insert revised\")",
+    "index": 0
+  }
+      </pre></td>
+    </tr>
+    <tr>
+      <td> sample JSON response </td>
+      <td><pre>{"status": "CREATED","message": "","body": "20151218-100330_1754029574"}</pre></td>
+    </tr>
+  </table>
+
+<br/>
+
+  <table class="table-configuration">
+    <col width="200">
+    <tr>
+      <th>Get paragraph</th>
+      <th></th>
+    </tr>
+    <tr>
+      <td>Description</td>
+      <td>This ```GET``` method retrieves an existing paragraph's information using the given id.
+          The body field of the returned JSON contain information about paragraph.
+      </td>
+    </tr>
+    <tr>
+      <td>URL</td>
+      <td>```http://[zeppelin-server]:[zeppelin-port]/api/notebook/[notebookId]/paragraph/[paragraphId]```</td>
+    </tr>
+    <tr>
+      <td>Success code</td>
+      <td>200</td>
+    </tr>
+    <tr>
+      <td> Fail code</td>
+      <td> 500 </td>
+    </tr>
+    <tr>
+      <td> sample JSON response </td>
+      <td><pre>
+{
+  "status": "OK",
+  "message": "",
+  "body": {
+    "title": "Paragraph2",
+    "text": "%spark\n\nprintln(\"it's paragraph2\")",
+    "dateUpdated": "Dec 18, 2015 7:33:54 AM",
+    "config": {
+      "colWidth": 12,
+      "graph": {
+        "mode": "table",
+        "height": 300,
+        "optionOpen": false,
+        "keys": [],
+        "values": [],
+        "groups": [],
+        "scatter": {}
+      },
+      "enabled": true,
+      "title": true,
+      "editorMode": "ace/mode/scala"
+    },
+    "settings": {
+      "params": {},
+      "forms": {}
+    },
+    "jobName": "paragraph_1450391574392_-1890856722",
+    "id": "20151218-073254_1105602047",
+    "result": {
+      "code": "SUCCESS",
+      "type": "TEXT",
+      "msg": "it's paragraph2\n"
+    },
+    "dateCreated": "Dec 18, 2015 7:32:54 AM",
+    "dateStarted": "Dec 18, 2015 7:33:55 AM",
+    "dateFinished": "Dec 18, 2015 7:33:55 AM",
+    "status": "FINISHED",
+    "progressUpdateIntervalMs": 500
+  }
+}
+      </pre></td>
+    </tr>
+  </table>
   
+<br/>
+
+  <table class="table-configuration">
+    <col width="200">
+    <tr>
+      <th>Move paragraph</th>
+      <th></th>
+    </tr>
+    <tr>
+      <td>Description</td>
+      <td>This ```POST``` method moves a paragraph to the specific index (order) from the notebook.
+      </td>
+    </tr>
+    <tr>
+      <td>URL</td>
+      <td>```http://[zeppelin-server]:[zeppelin-port]/api/notebook/[notebookId]/paragraph/[paragraphId]/move/[newIndex]```</td>
+    </tr>
+    <tr>
+      <td>Success code</td>
+      <td>200</td>
+    </tr>
+    <tr>
+      <td> Fail code</td>
+      <td> 500 </td>
+    </tr>
+    <tr>
+      <td> sample JSON response </td>
+      <td><pre>{"status":"OK","message":""}</pre></td>
+    </tr>
+  </table>
+
+
+<br/>
+
+  <table class="table-configuration">
+    <col width="200">
+    <tr>
+      <th>Delete paragraph</th>
+      <th></th>
+    </tr>
+    <tr>
+      <td>Description</td>
+      <td>This ```DELETE``` method deletes a paragraph by the given notebook and paragraph id.
+      </td>
+    </tr>
+    <tr>
+      <td>URL</td>
+      <td>```http://[zeppelin-server]:[zeppelin-port]/api/notebook/[notebookId]/paragraph/[paragraphId]```</td>
+    </tr>
+    <tr>
+      <td>Success code</td>
+      <td>200</td>
+    </tr>
+    <tr>
+      <td> Fail code</td>
+      <td> 500 </td>
+    </tr>
+    <tr>
+      <td> sample JSON response </td>
+      <td><pre>{"status":"OK","message":""}</pre></td>
+    </tr>
+  </table>
+
+
+
+  <table class="table-configuration">
+    <col width="200">
+    <tr>
+      <th>Export notebook</th>
+      <th></th>
+    </tr>
+    <tr>
+      <td>Description</td>
+      <td>This ```GET``` method exports a notebook by the given id and gernerates a JSON
+      </td>
+    </tr>
+    <tr>
+      <td>URL</td>
+      <td>```http://[zeppelin-server]:[zeppelin-port]/api/notebook/export/[notebookId]```</td>
+    </tr>
+    <tr>
+      <td>Success code</td>
+      <td>201</td>
+    </tr>
+    <tr>
+      <td> Fail code</td>
+      <td> 500 </td>
+    </tr>
+    <td> sample JSON response </td>
+      <td><pre>{
+  "paragraphs": [
+    {
+      "text": "%md This is my new paragraph in my new note",
+      "dateUpdated": "Jan 8, 2016 4:49:38 PM",
+      "config": {
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "jobName": "paragraph_1452300578795_1196072540",
+      "id": "20160108-164938_1685162144",
+      "dateCreated": "Jan 8, 2016 4:49:38 PM",
+      "status": "READY",
+      "progressUpdateIntervalMs": 500
+    }
+  ],
+  "name": "source note for export",
+  "id": "2B82H3RR1",
+  "angularObjects": {},
+  "config": {},
+  "info": {}
+}</pre></td>
+    </tr>
+  </table>
+
+  <table class="table-configuration">
+    <col width="200">
+    <tr>
+      <th>Export notebook</th>
+      <th></th>
+    </tr>
+    <tr>
+      <td>Description</td>
+      <td>This ```POST``` method imports a notebook from the notebook JSON input
+      </td>
+    </tr>
+    <tr>
+      <td>URL</td>
+      <td>```http://[zeppelin-server]:[zeppelin-port]/api/notebook/import```</td>
+    </tr>
+    <tr>
+      <td>Success code</td>
+      <td>201</td>
+    </tr>
+    <tr>
+      <td> Fail code</td>
+      <td> 500 </td>
+    </tr>
+    <td> sample JSON input </td>
+      <td><pre>{
+  "paragraphs": [
+    {
+      "text": "%md This is my new paragraph in my new note",
+      "dateUpdated": "Jan 8, 2016 4:49:38 PM",
+      "config": {
+        "enabled": true
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "jobName": "paragraph_1452300578795_1196072540",
+      "id": "20160108-164938_1685162144",
+      "dateCreated": "Jan 8, 2016 4:49:38 PM",
+      "status": "READY",
+      "progressUpdateIntervalMs": 500
+    }
+  ],
+  "name": "source note for export",
+  "id": "2B82H3RR1",
+  "angularObjects": {},
+  "config": {},
+  "info": {}
+}</pre></td>
+<tr>
+      <td> sample JSON response </td>
+      <td><pre>"status": "CREATED","message": "","body": "2AZPHY918"}</pre></td>
+    </tr>
+    </tr>
+  </table>

@@ -21,7 +21,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.zeppelin.display.AngularObjectRegistry;
+import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.display.GUI;
+import org.apache.zeppelin.resource.ResourcePool;
 
 /**
  * Interpreter context
@@ -29,6 +31,7 @@ import org.apache.zeppelin.display.GUI;
 public class InterpreterContext {
   private static final ThreadLocal<InterpreterContext> threadIC =
       new ThreadLocal<InterpreterContext>();
+  public final InterpreterOutput out;
 
   public static InterpreterContext get() {
     return threadIC.get();
@@ -46,33 +49,36 @@ public class InterpreterContext {
   private final String paragraphTitle;
   private final String paragraphId;
   private final String paragraphText;
+  private AuthenticationInfo authenticationInfo;
   private final Map<String, Object> config;
   private GUI gui;
   private AngularObjectRegistry angularObjectRegistry;
+  private ResourcePool resourcePool;
   private List<InterpreterContextRunner> runners;
-  private String executingUser;
-  private String password;
 
   public InterpreterContext(String noteId,
                             String paragraphId,
                             String paragraphTitle,
                             String paragraphText,
+                            AuthenticationInfo authenticationInfo,
                             Map<String, Object> config,
                             GUI gui,
                             AngularObjectRegistry angularObjectRegistry,
+                            ResourcePool resourcePool,
                             List<InterpreterContextRunner> runners,
-                            String executingUser,
-                            String password) {
+                            InterpreterOutput out
+                            ) {
     this.noteId = noteId;
     this.paragraphId = paragraphId;
     this.paragraphTitle = paragraphTitle;
     this.paragraphText = paragraphText;
+    this.authenticationInfo = authenticationInfo;
     this.config = config;
     this.gui = gui;
     this.angularObjectRegistry = angularObjectRegistry;
+    this.resourcePool = resourcePool;
     this.runners = runners;
-    this.executingUser = executingUser;
-    this.password = password;
+    this.out = out;
   }
 
 
@@ -92,6 +98,10 @@ public class InterpreterContext {
     return paragraphTitle;
   }
 
+  public AuthenticationInfo getAuthenticationInfo() {
+    return authenticationInfo;
+  }
+
   public Map<String, Object> getConfig() {
     return config;
   }
@@ -104,24 +114,12 @@ public class InterpreterContext {
     return angularObjectRegistry;
   }
 
+  public ResourcePool getResourcePool() {
+    return resourcePool;
+  }
+
   public List<InterpreterContextRunner> getRunners() {
     return runners;
-  }
-
-  public String getExecutingUser() {
-    return executingUser;
-  }
-
-  public void setExecutingUser(String executingUser) {
-    this.executingUser = executingUser;
-  }
-
-  public String getPassword() {
-    return password;
-  }
-
-  public void setPassword(String password) {
-    this.password = password;
   }
 
 }

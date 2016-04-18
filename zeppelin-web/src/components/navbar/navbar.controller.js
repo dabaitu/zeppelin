@@ -18,11 +18,23 @@ angular.module('zeppelinWebApp').controller('NavCtrl', function($scope, $rootSco
     $location, notebookListDataFactory, websocketMsgSrv, arrayOrderingSrv) {
   /** Current list of notes (ids) */
 
+  $scope.showLoginWindow = function() {
+    setTimeout(function() {
+      angular.element('#userName').focus();
+    }, 500);
+  };
+
   var vm = this;
   vm.notes = notebookListDataFactory;
   vm.connected = websocketMsgSrv.isConnected();
   vm.websocketMsgSrv = websocketMsgSrv;
   vm.arrayOrderingSrv = arrayOrderingSrv;
+  if ($rootScope.ticket) {
+    $rootScope.fullUsername = $rootScope.ticket.principal;
+    $rootScope.truncatedUsername = $rootScope.ticket.principal;
+  }
+
+  var MAX_USERNAME_LENGTH=16;
 
   angular.element('#notebook-list').perfectScrollbar({suppressScrollX: true});
 
@@ -47,6 +59,35 @@ angular.module('zeppelinWebApp').controller('NavCtrl', function($scope, $rootSco
     $location.url(/search/ + $scope.searchTerm);
   };
 
+  $rootScope.$on('$locationChangeSuccess', function () {
+    var path = $location.path();
+    // hacky solution to clear search bar
+    // TODO(felizbear): figure out how to make ng-click work in navbar
+    if (path === '/') {
+      $scope.searchTerm = '';
+    }
+  });
+
+  $scope.checkUsername = function () {
+    if ($rootScope.ticket) {
+      if ($rootScope.ticket.principal.length <= MAX_USERNAME_LENGTH) {
+        $rootScope.truncatedUsername = $rootScope.ticket.principal;
+      }
+      else {
+        $rootScope.truncatedUsername = $rootScope.ticket.principal.substr(0, MAX_USERNAME_LENGTH) + '..';
+      }
+    }
+  };
+
+  $scope.$on('loginSuccess', function(event, param) {
+    $scope.checkUsername();
+    loadNotes();
+  });
+
+  $scope.search = function() {
+    $location.url(/search/ + $scope.searchTerm);
+  };
+
   function loadNotes() {
     websocketMsgSrv.getNotebookList();
   }
@@ -59,5 +100,6 @@ angular.module('zeppelinWebApp').controller('NavCtrl', function($scope, $rootSco
   vm.isActive = isActive;
 
   vm.loadNotes();
+  $scope.checkUsername();
 
 });
