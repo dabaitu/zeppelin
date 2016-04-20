@@ -28,35 +28,24 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.apache.thrift.transport.TTransportException;
-import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
-import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterService;
-import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterService.Client;
-import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.display.GUI;
-import org.apache.zeppelin.interpreter.*;
+import org.apache.zeppelin.interpreter.InterpreterContext;
+import org.apache.zeppelin.interpreter.InterpreterContextRunner;
+import org.apache.zeppelin.interpreter.InterpreterGroup;
+import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.interpreter.remote.mock.MockInterpreterA;
 import org.apache.zeppelin.interpreter.remote.mock.MockInterpreterB;
-import org.apache.zeppelin.resource.LocalResourcePool;
 import org.apache.zeppelin.scheduler.Job;
 import org.apache.zeppelin.scheduler.Job.Status;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.mockito.Mockito;
-
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 
 public class RemoteInterpreterTest {
 
-
-  private static final String INTERPRETER_SCRIPT =
-          System.getProperty("os.name").startsWith("Windows") ?
-                  "../bin/interpreter.cmd" :
-                  "../bin/interpreter.sh";
 
   private InterpreterGroup intpGroup;
   private HashMap<String, String> env;
@@ -74,54 +63,32 @@ public class RemoteInterpreterTest {
     intpGroup.destroy();
   }
 
-  private RemoteInterpreter createMockInterpreterA(Properties p) {
-    return createMockInterpreterA(p, "note");
-  }
-
-  private RemoteInterpreter createMockInterpreterA(Properties p, String noteId) {
-    return new RemoteInterpreter(
-            p,
-            noteId,
-            MockInterpreterA.class.getName(),
-            new File(INTERPRETER_SCRIPT).getAbsolutePath(),
-            "fake",
-            "fakeRepo",
-            env,
-            10 * 1000,
-            null);
-  }
-
-  private RemoteInterpreter createMockInterpreterB(Properties p) {
-    return createMockInterpreterB(p, "note");
-  }
-
-  private RemoteInterpreter createMockInterpreterB(Properties p, String noteId) {
-    return new RemoteInterpreter(
-            p,
-            noteId,
-            MockInterpreterB.class.getName(),
-            new File(INTERPRETER_SCRIPT).getAbsolutePath(),
-            "fake",
-            "fakeRepo",
-            env,
-            10 * 1000,
-            null);
-  }
-
   @Test
   public void testRemoteInterperterCall() throws TTransportException, IOException {
     Properties p = new Properties();
-    intpGroup.put("note", new LinkedList<Interpreter>());
 
-    RemoteInterpreter intpA = createMockInterpreterA(p);
+    RemoteInterpreter intpA = new RemoteInterpreter(
+        p,
+        MockInterpreterA.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
-    intpGroup.get("note").add(intpA);
-
+    intpGroup.add(intpA);
     intpA.setInterpreterGroup(intpGroup);
 
-    RemoteInterpreter intpB = createMockInterpreterB(p);
+    RemoteInterpreter intpB = new RemoteInterpreter(
+        p,
+        MockInterpreterB.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
-    intpGroup.get("note").add(intpB);
+    intpGroup.add(intpB);
     intpB.setInterpreterGroup(intpGroup);
 
 
@@ -132,10 +99,10 @@ public class RemoteInterpreterTest {
     assertEquals(0, process.getNumIdleClient());
     assertEquals(0, process.referenceCount());
 
-    intpA.open(); // initializa all interpreters in the same group
+    intpA.open();
     assertTrue(process.isRunning());
     assertEquals(1, process.getNumIdleClient());
-    assertEquals(2, process.referenceCount());
+    assertEquals(1, process.referenceCount());
 
     intpA.interpret("1",
         new InterpreterContext(
@@ -143,12 +110,10 @@ public class RemoteInterpreterTest {
             "id",
             "title",
             "text",
-            new AuthenticationInfo(),
             new HashMap<String, Object>(),
             new GUI(),
             new AngularObjectRegistry(intpGroup.getId(), null),
-            new LocalResourcePool("pool1"),
-            new LinkedList<InterpreterContextRunner>(), null));
+            new LinkedList<InterpreterContextRunner>(), null, null));
 
     intpB.open();
     assertEquals(2, process.referenceCount());
@@ -166,10 +131,16 @@ public class RemoteInterpreterTest {
   public void testRemoteInterperterErrorStatus() throws TTransportException, IOException {
     Properties p = new Properties();
 
-    RemoteInterpreter intpA = createMockInterpreterA(p);
+    RemoteInterpreter intpA = new RemoteInterpreter(
+        p,
+        MockInterpreterA.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
-    intpGroup.put("note", new LinkedList<Interpreter>());
-    intpGroup.get("note").add(intpA);
+    intpGroup.add(intpA);
     intpA.setInterpreterGroup(intpGroup);
 
     intpA.open();
@@ -179,12 +150,10 @@ public class RemoteInterpreterTest {
             "id",
             "title",
             "text",
-            new AuthenticationInfo(),
             new HashMap<String, Object>(),
             new GUI(),
             new AngularObjectRegistry(intpGroup.getId(), null),
-            new LocalResourcePool("pool1"),
-            new LinkedList<InterpreterContextRunner>(), null));
+            new LinkedList<InterpreterContextRunner>(), null, null));
 
     assertEquals(Code.ERROR, ret.code());
   }
@@ -192,35 +161,29 @@ public class RemoteInterpreterTest {
   @Test
   public void testRemoteSchedulerSharing() throws TTransportException, IOException {
     Properties p = new Properties();
-    intpGroup.put("note", new LinkedList<Interpreter>());
 
     RemoteInterpreter intpA = new RemoteInterpreter(
         p,
-        "note",
         MockInterpreterA.class.getName(),
-        new File(INTERPRETER_SCRIPT).getAbsolutePath(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
         "fake",
-        "fakeRepo",
         env,
-        10 * 1000,
-        null);
+        10 * 1000
+        );
 
-
-    intpGroup.get("note").add(intpA);
+    intpGroup.add(intpA);
     intpA.setInterpreterGroup(intpGroup);
 
     RemoteInterpreter intpB = new RemoteInterpreter(
         p,
-        "note",
         MockInterpreterB.class.getName(),
-        new File(INTERPRETER_SCRIPT).getAbsolutePath(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
         "fake",
-        "fakeRepo",
         env,
-        10 * 1000,
-        null);
+        10 * 1000
+        );
 
-    intpGroup.get("note").add(intpB);
+    intpGroup.add(intpB);
     intpB.setInterpreterGroup(intpGroup);
 
     intpA.open();
@@ -233,12 +196,10 @@ public class RemoteInterpreterTest {
             "id",
             "title",
             "text",
-            new AuthenticationInfo(),
             new HashMap<String, Object>(),
             new GUI(),
             new AngularObjectRegistry(intpGroup.getId(), null),
-            new LocalResourcePool("pool1"),
-            new LinkedList<InterpreterContextRunner>(), null));
+            new LinkedList<InterpreterContextRunner>(), null, null));
     assertEquals("500", ret.message());
 
     ret = intpB.interpret("500",
@@ -247,12 +208,10 @@ public class RemoteInterpreterTest {
             "id",
             "title",
             "text",
-            new AuthenticationInfo(),
             new HashMap<String, Object>(),
             new GUI(),
             new AngularObjectRegistry(intpGroup.getId(), null),
-            new LocalResourcePool("pool1"),
-            new LinkedList<InterpreterContextRunner>(), null));
+            new LinkedList<InterpreterContextRunner>(), null, null));
     assertEquals("1000", ret.message());
     long end = System.currentTimeMillis();
     assertTrue(end - start >= 1000);
@@ -265,16 +224,29 @@ public class RemoteInterpreterTest {
   @Test
   public void testRemoteSchedulerSharingSubmit() throws TTransportException, IOException, InterruptedException {
     Properties p = new Properties();
-    intpGroup.put("note", new LinkedList<Interpreter>());
 
-    final RemoteInterpreter intpA = createMockInterpreterA(p);
+    final RemoteInterpreter intpA = new RemoteInterpreter(
+        p,
+        MockInterpreterA.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
-    intpGroup.get("note").add(intpA);
+    intpGroup.add(intpA);
     intpA.setInterpreterGroup(intpGroup);
 
-    final RemoteInterpreter intpB = createMockInterpreterB(p);
+    final RemoteInterpreter intpB = new RemoteInterpreter(
+        p,
+        MockInterpreterB.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
-    intpGroup.get("note").add(intpB);
+    intpGroup.add(intpB);
     intpB.setInterpreterGroup(intpGroup);
 
     intpA.open();
@@ -301,12 +273,10 @@ public class RemoteInterpreterTest {
                 "jobA",
                 "title",
                 "text",
-                new AuthenticationInfo(),
                 new HashMap<String, Object>(),
                 new GUI(),
                 new AngularObjectRegistry(intpGroup.getId(), null),
-                new LocalResourcePool("pool1"),
-                new LinkedList<InterpreterContextRunner>(), null));
+                new LinkedList<InterpreterContextRunner>(), null, null));
       }
 
       @Override
@@ -337,12 +307,10 @@ public class RemoteInterpreterTest {
                 "jobB",
                 "title",
                 "text",
-                new AuthenticationInfo(),
                 new HashMap<String, Object>(),
                 new GUI(),
                 new AngularObjectRegistry(intpGroup.getId(), null),
-                new LocalResourcePool("pool1"),
-                new LinkedList<InterpreterContextRunner>(), null));
+                new LinkedList<InterpreterContextRunner>(), null, null));
       }
 
       @Override
@@ -352,11 +320,13 @@ public class RemoteInterpreterTest {
 
     };
     intpB.getScheduler().submit(jobB);
+
     // wait until both job finished
     while (jobA.getStatus() != Status.FINISHED ||
            jobB.getStatus() != Status.FINISHED) {
       Thread.sleep(100);
     }
+
     long end = System.currentTimeMillis();
     assertTrue(end - start >= 1000);
 
@@ -369,11 +339,17 @@ public class RemoteInterpreterTest {
   @Test
   public void testRunOrderPreserved() throws InterruptedException {
     Properties p = new Properties();
-    intpGroup.put("note", new LinkedList<Interpreter>());
 
-    final RemoteInterpreter intpA = createMockInterpreterA(p);
+    final RemoteInterpreter intpA = new RemoteInterpreter(
+        p,
+        MockInterpreterA.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
-    intpGroup.get("note").add(intpA);
+    intpGroup.add(intpA);
     intpA.setInterpreterGroup(intpGroup);
 
     intpA.open();
@@ -403,12 +379,10 @@ public class RemoteInterpreterTest {
               jobId,
               "title",
               "text",
-              new AuthenticationInfo(),
               new HashMap<String, Object>(),
               new GUI(),
               new AngularObjectRegistry(intpGroup.getId(), null),
-              new LocalResourcePool("pool1"),
-              new LinkedList<InterpreterContextRunner>(), null));
+              new LinkedList<InterpreterContextRunner>(), null, null));
 
           synchronized (results) {
             results.add(ret.message());
@@ -446,11 +420,17 @@ public class RemoteInterpreterTest {
   public void testRunParallel() throws InterruptedException {
     Properties p = new Properties();
     p.put("parallel", "true");
-    intpGroup.put("note", new LinkedList<Interpreter>());
 
-    final RemoteInterpreter intpA = createMockInterpreterA(p);
+    final RemoteInterpreter intpA = new RemoteInterpreter(
+        p,
+        MockInterpreterA.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
-    intpGroup.get("note").add(intpA);
+    intpGroup.add(intpA);
     intpA.setInterpreterGroup(intpGroup);
 
     intpA.open();
@@ -483,12 +463,10 @@ public class RemoteInterpreterTest {
               jobId,
               "title",
               "text",
-              new AuthenticationInfo(),
               new HashMap<String, Object>(),
               new GUI(),
               new AngularObjectRegistry(intpGroup.getId(), null),
-              new LocalResourcePool("pool1"),
-              new LinkedList<InterpreterContextRunner>(), null));
+              new LinkedList<InterpreterContextRunner>(), null, null));
 
           synchronized (results) {
             results.add(ret.message());
@@ -523,7 +501,14 @@ public class RemoteInterpreterTest {
   public void testInterpreterGroupResetBeforeProcessStarts() {
     Properties p = new Properties();
 
-    RemoteInterpreter intpA = createMockInterpreterA(p);
+    RemoteInterpreter intpA = new RemoteInterpreter(
+        p,
+        MockInterpreterA.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
     intpA.setInterpreterGroup(intpGroup);
     RemoteInterpreterProcess processA = intpA.getInterpreterProcess();
@@ -537,9 +522,15 @@ public class RemoteInterpreterTest {
   @Test
   public void testInterpreterGroupResetAfterProcessFinished() {
     Properties p = new Properties();
-    intpGroup.put("note", new LinkedList<Interpreter>());
 
-    RemoteInterpreter intpA = createMockInterpreterA(p);
+    RemoteInterpreter intpA = new RemoteInterpreter(
+        p,
+        MockInterpreterA.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
     intpA.setInterpreterGroup(intpGroup);
     RemoteInterpreterProcess processA = intpA.getInterpreterProcess();
@@ -556,11 +547,17 @@ public class RemoteInterpreterTest {
   @Test
   public void testInterpreterGroupResetDuringProcessRunning() throws InterruptedException {
     Properties p = new Properties();
-    intpGroup.put("note", new LinkedList<Interpreter>());
 
-    final RemoteInterpreter intpA = createMockInterpreterA(p);
+    final RemoteInterpreter intpA = new RemoteInterpreter(
+        p,
+        MockInterpreterA.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
-    intpGroup.get("note").add(intpA);
+    intpGroup.add(intpA);
     intpA.setInterpreterGroup(intpGroup);
 
     intpA.open();
@@ -585,12 +582,10 @@ public class RemoteInterpreterTest {
                 "jobA",
                 "title",
                 "text",
-                new AuthenticationInfo(),
                 new HashMap<String, Object>(),
                 new GUI(),
                 new AngularObjectRegistry(intpGroup.getId(), null),
-                new LocalResourcePool("pool1"),
-                new LinkedList<InterpreterContextRunner>(), null));
+                new LinkedList<InterpreterContextRunner>(), null, null));
       }
 
       @Override
@@ -609,12 +604,7 @@ public class RemoteInterpreterTest {
     // restart interpreter
     RemoteInterpreterProcess processA = intpA.getInterpreterProcess();
     intpA.close();
-
-    InterpreterGroup newInterpreterGroup =
-        new InterpreterGroup(intpA.getInterpreterGroup().getId());
-    newInterpreterGroup.put("note", new LinkedList<Interpreter>());
-
-    intpA.setInterpreterGroup(newInterpreterGroup);
+    intpA.setInterpreterGroup(new InterpreterGroup(intpA.getInterpreterGroup().getId()));
     intpA.open();
     RemoteInterpreterProcess processB = intpA.getInterpreterProcess();
 
@@ -625,16 +615,29 @@ public class RemoteInterpreterTest {
   @Test
   public void testRemoteInterpreterSharesTheSameSchedulerInstanceInTheSameGroup() {
     Properties p = new Properties();
-    intpGroup.put("note", new LinkedList<Interpreter>());
 
-    RemoteInterpreter intpA = createMockInterpreterA(p);
+    RemoteInterpreter intpA = new RemoteInterpreter(
+        p,
+        MockInterpreterA.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
-    intpGroup.get("note").add(intpA);
+    intpGroup.add(intpA);
     intpA.setInterpreterGroup(intpGroup);
 
-    RemoteInterpreter intpB = createMockInterpreterB(p);
+    RemoteInterpreter intpB = new RemoteInterpreter(
+        p,
+        MockInterpreterB.class.getName(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
+        "fake",
+        env,
+        10 * 1000
+        );
 
-    intpGroup.get("note").add(intpB);
+    intpGroup.add(intpB);
     intpB.setInterpreterGroup(intpGroup);
 
     intpA.open();
@@ -642,63 +645,4 @@ public class RemoteInterpreterTest {
 
     assertEquals(intpA.getScheduler(), intpB.getScheduler());
   }
-
-  @Test
-  public void testMultiInterpreterSession() {
-    Properties p = new Properties();
-    intpGroup.put("sessionA", new LinkedList<Interpreter>());
-    intpGroup.put("sessionB", new LinkedList<Interpreter>());
-
-    RemoteInterpreter intpAsessionA = createMockInterpreterA(p, "sessionA");
-    intpGroup.get("sessionA").add(intpAsessionA);
-    intpAsessionA.setInterpreterGroup(intpGroup);
-
-    RemoteInterpreter intpBsessionA = createMockInterpreterB(p, "sessionA");
-    intpGroup.get("sessionA").add(intpBsessionA);
-    intpBsessionA.setInterpreterGroup(intpGroup);
-
-    intpAsessionA.open();
-    intpBsessionA.open();
-
-    assertEquals(intpAsessionA.getScheduler(), intpBsessionA.getScheduler());
-
-    RemoteInterpreter intpAsessionB = createMockInterpreterA(p, "sessionB");
-    intpGroup.get("sessionB").add(intpAsessionB);
-    intpAsessionB.setInterpreterGroup(intpGroup);
-
-    RemoteInterpreter intpBsessionB = createMockInterpreterB(p, "sessionB");
-    intpGroup.get("sessionB").add(intpBsessionB);
-    intpBsessionB.setInterpreterGroup(intpGroup);
-
-    intpAsessionB.open();
-    intpBsessionB.open();
-
-    assertEquals(intpAsessionB.getScheduler(), intpBsessionB.getScheduler());
-    assertNotEquals(intpAsessionA.getScheduler(), intpAsessionB.getScheduler());
-  }
-
-  @Test
-  public void should_push_local_angular_repo_to_remote() throws Exception {
-    //Given
-    final Client client = Mockito.mock(Client.class);
-    final RemoteInterpreter intr = new RemoteInterpreter(new Properties(), "noteId",
-            MockInterpreterA.class.getName(), "runner", "path","localRepo", env, 10 * 1000, null);
-    final AngularObjectRegistry registry = new AngularObjectRegistry("spark", null);
-    registry.add("name", "DuyHai DOAN", "nodeId", "paragraphId");
-    final InterpreterGroup interpreterGroup = new InterpreterGroup("groupId");
-    interpreterGroup.setAngularObjectRegistry(registry);
-    intr.setInterpreterGroup(interpreterGroup);
-
-    final java.lang.reflect.Type registryType = new TypeToken<Map<String,
-                Map<String, AngularObject>>>() {}.getType();
-    final Gson gson = new Gson();
-    final String expected = gson.toJson(registry.getRegistry(), registryType);
-
-    //When
-    intr.pushAngularObjectRegistryToRemote(client);
-
-    //Then
-    Mockito.verify(client).angularRegistryPush(expected);
-  }
-
 }

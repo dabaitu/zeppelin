@@ -47,10 +47,10 @@
           <webXml>dist\WEB-INF\web.xml</webXml>
         </configuration>
       </plugin>
-
       <plugin>
         <groupId>org.apache.rat</groupId>
         <artifactId>apache-rat-plugin</artifactId>
+        <version>0.11</version>
         <configuration>
           <excludes>
             <exclude>**/.idea/</exclude>
@@ -86,7 +86,7 @@
       <plugin>
         <groupId>com.github.eirslett</groupId>
         <artifactId>frontend-maven-plugin</artifactId>
-        <version>0.0.25</version>
+        <version>0.0.23</version>
         <executions>
 
           <execution>
@@ -95,8 +95,8 @@
               <goal>install-node-and-npm</goal>
             </goals>
             <configuration>
-              <nodeVersion>v0.12.13</nodeVersion>
-              <npmVersion>2.15.0</npmVersion>
+              <nodeVersion>v0.10.22</nodeVersion>
+              <npmVersion>1.3.8</npmVersion>
             </configuration>
           </execution>
 
@@ -122,23 +122,11 @@
             <goals>
               <goal>grunt</goal>
             </goals>
+
             <configuration>
-              <arguments>build</arguments>
-              <arguments>--force</arguments>
+              <arguments>--no-color</arguments>
             </configuration>
           </execution>
-
-          <execution>
-            <id>grunt test</id>
-            <goals>
-              <goal>grunt</goal>
-            </goals>
-            <phase>test</phase>
-            <configuration>
-              <arguments>test</arguments>
-            </configuration>
-          </execution>
-
         </executions>
       </plugin>
 
@@ -164,6 +152,9 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-deploy-plugin</artifactId>
         <version>2.7</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
       </plugin>
 
       <plugin>

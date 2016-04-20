@@ -72,18 +72,14 @@ public class S3NotebookRepo implements NotebookRepo {
   //  4. Instance profile credentials delivered through the Amazon EC2 metadata service
   private AmazonS3 s3client = new AmazonS3Client(new DefaultAWSCredentialsProviderChain());
   private static String bucketName = "";
-  private static String endpoint = "";
   private String user = "";
 
   private ZeppelinConfiguration conf;
 
   public S3NotebookRepo(ZeppelinConfiguration conf) throws IOException {
     this.conf = conf;
-    bucketName = conf.getBucketName();
-    endpoint = conf.getEndpoint();
     user = conf.getUser();
-
-    s3client.setEndpoint(endpoint);
+    bucketName = conf.getBucketName();
   }
 
   @Override
@@ -106,17 +102,7 @@ public class S3NotebookRepo implements NotebookRepo {
               if (info != null) {
                 infos.add(info);
               }
-            } catch (AmazonServiceException ase) {
-              LOG.warn("Caught an AmazonServiceException for some reason.\n" +
-                  "Error Message: {}", ase.getMessage());
-            } catch (AmazonClientException ace) {
-              LOG.info("Caught an AmazonClientException, " +
-                  "which means the client encountered " +
-                  "an internal error while trying to communicate" +
-                  " with S3, " +
-                  "such as not being able to access the network.");
-              LOG.info("Error Message: " + ace.getMessage());
-            } catch (Exception e) {
+            } catch (IOException e) {
               LOG.error("Can't read note ", e);
             }
           }
@@ -124,8 +110,7 @@ public class S3NotebookRepo implements NotebookRepo {
         listObjectsRequest.setMarker(objectListing.getNextMarker());
       } while (objectListing.isTruncated());
     } catch (AmazonServiceException ase) {
-      LOG.warn("Caught an AmazonServiceException for some reason.\n" +
-          "Error Message: {}", ase.getMessage());
+
     } catch (AmazonClientException ace) {
       LOG.info("Caught an AmazonClientException, " +
           "which means the client encountered " +
@@ -203,11 +188,5 @@ public class S3NotebookRepo implements NotebookRepo {
   @Override
   public void close() {
     //no-op
-  }
-
-  @Override
-  public void checkpoint(String noteId, String checkPointName) throws IOException {
-    // no-op
-    LOG.info("Checkpoint feature isn't supported in {}", this.getClass().toString());
   }
 }

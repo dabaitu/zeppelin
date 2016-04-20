@@ -17,8 +17,6 @@
 
 package org.apache.zeppelin.interpreter;
 
-import org.sonatype.aether.repository.RemoteRepository;
-
 import java.util.List;
 import java.util.Map;
 
@@ -28,5 +26,4 @@ import java.util.Map;
 public class InterpreterInfoSaving {
   public Map<String, InterpreterSetting> interpreterSettings;
   public Map<String, List<String>> interpreterBindings;
-  public List<RemoteRepository> interpreterRepositories;
 }

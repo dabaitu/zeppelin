@@ -25,7 +25,6 @@ import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.notebook.Note;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.api.errors.NoHeadException;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.internal.storage.file.FileRepository;
@@ -62,33 +61,28 @@ public class GitNotebookRepo extends VFSNotebookRepo implements NotebookRepoVers
       localRepo.create();
     }
     git = new Git(localRepo);
+    maybeAddAndCommit(".");
   }
 
   @Override
   public synchronized void save(Note note) throws IOException {
     super.save(note);
+    maybeAddAndCommit(note.getId());
   }
 
-  /* implemented as git add+commit
-   * @param pattern is the noteId
-   * @param commitMessage is a commit message (checkpoint name)
-   * (non-Javadoc)
-   * @see org.apache.zeppelin.notebook.repo.VFSNotebookRepo#checkpoint(String, String)
-   */
-  @Override
-  public void checkpoint(String pattern, String commitMessage) {
+  private void maybeAddAndCommit(String pattern) {
     try {
       List<DiffEntry> gitDiff = git.diff().call();
       if (!gitDiff.isEmpty()) {
         LOG.debug("Changes found for pattern '{}': {}", pattern, gitDiff);
         DirCache added = git.add().addFilepattern(pattern).call();
         LOG.debug("{} changes are about to be commited", added.getEntryCount());
-        git.commit().setMessage(commitMessage).call();
+        git.commit().setMessage("Updated " + pattern).call();
       } else {
         LOG.debug("No changes found {}", pattern);
       }
     } catch (GitAPIException e) {
-      LOG.error("Failed to add+comit {} to Git", pattern, e);
+      LOG.error("Faild to add+comit {} to Git", pattern, e);
     }
   }
 
@@ -106,11 +100,8 @@ public class GitNotebookRepo extends VFSNotebookRepo implements NotebookRepoVers
       Iterable<RevCommit> logs = git.log().addPath(noteId).call();
       for (RevCommit log: logs) {
         history.add(new Rev(log.getName(), log.getCommitTime()));
-        LOG.debug(" - ({},{},{})", log.getName(), log.getCommitTime(), log.getFullMessage());
+        LOG.debug(" - ({},{})", log.getName(), log.getCommitTime());
       }
-    } catch (NoHeadException e) {
-      //when no initial commit exists
-      LOG.warn("No Head found for {}, {}", noteId, e.getMessage());
     } catch (GitAPIException e) {
       LOG.error("Failed to get logs for {}", noteId, e);
     }

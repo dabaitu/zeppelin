@@ -136,8 +136,8 @@ public class HiveInterpreter extends Interpreter {
 
   public InterpreterResult executeSql(String propertyKey, String sql,
                                       InterpreterContext interpreterContext) {
-    String executingUser = interpreterContext.getAuthenticationInfo().getUser();
-    String password = interpreterContext.getAuthenticationInfo().getPassword();
+    String executingUser = interpreterContext.getExecutingUser();
+    String password = interpreterContext.getPassword();
     Connection connection = null;
     Statement statement = null;
     try {
@@ -151,15 +151,7 @@ public class HiveInterpreter extends Interpreter {
       } else {
         connection = DriverManager.getConnection(url, properties);
       }
-      if (connection == null) {
-        return null;
-      }
-
       statement = connection.createStatement();
-
-      if (statement == null) {
-        return new InterpreterResult(Code.ERROR, "Prefix not found.");
-      }
 
       statement.setMaxRows(getMaxResult());
 
@@ -230,14 +222,16 @@ public class HiveInterpreter extends Interpreter {
   public InterpreterResult interpret(String cmd, InterpreterContext contextInterpreter) {
     String propertyKey = getPropertyKey(cmd);
 
-    if (null != propertyKey && !propertyKey.equals(DEFAULT_KEY)) {
+    if (null != propertyKey) {
       cmd = cmd.substring(propertyKey.length() + 2);
+    } else {
+      propertyKey = DEFAULT_KEY;
     }
 
     cmd = cmd.trim();
 
     logger.info("PropertyKey: {} User: {} SQL command: '{}'", propertyKey,
-            contextInterpreter.getAuthenticationInfo().getUser(), cmd);
+            contextInterpreter.getExecutingUser(), cmd);
 
     return executeSql(propertyKey, cmd, contextInterpreter);
   }
@@ -248,22 +242,16 @@ public class HiveInterpreter extends Interpreter {
   }
 
   public String getPropertyKey(String cmd) {
-    boolean firstLineIndex = cmd.startsWith("(");
-
-    if (firstLineIndex) {
-      int configStartIndex = cmd.indexOf("(");
-      int configLastIndex = cmd.indexOf(")");
-      if (configStartIndex != -1 && configLastIndex != -1) {
-        return cmd.substring(configStartIndex + 1, configLastIndex);
-      } else {
-        return null;
-      }
-    } else {
-      return DEFAULT_KEY;
+    int firstLineIndex = cmd.indexOf("\n");
+    if (-1 == firstLineIndex) {
+      firstLineIndex = cmd.length();
     }
-  }
-
-  public Connection getConnection(String propertyKey) throws ClassNotFoundException, SQLException {
+    int configStartIndex = cmd.indexOf("(");
+    int configLastIndex = cmd.indexOf(")");
+    if (configStartIndex != -1 && configLastIndex != -1
+        && configLastIndex < firstLineIndex && configLastIndex < firstLineIndex) {
+      return cmd.substring(configStartIndex + 1, configLastIndex);
+    }
     return null;
   }
 

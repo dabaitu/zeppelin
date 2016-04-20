@@ -24,37 +24,28 @@ limitations under the License.
   </div>
 
   <div id="{{paragraph.id}}_text"
-       ng-if="getResultType() == 'TEXT'">
-    <div class="fa fa-level-down scroll-paragraph-down"
-         ng-show="showScrollDownIcon()"
-         ng-click="scrollParagraphDown()"
-         tooltip="Follow Output"></div>
-    <div id="p{{paragraph.id}}_text"
-         style="max-height: {{paragraph.config.graph.height}}px; overflow: auto"
-         class="text"></div>
-    <div class="fa fa-chevron-up scroll-paragraph-up"
-         ng-show="showScrollUpIcon()"
-         ng-click="scrollParagraphUp()"
-         tooltip="Scroll Top"></div>
+       class="text"
+       ng-if="paragraph.result.type == 'TEXT'"
+       ng-bind="paragraph.result.msg">
   </div>
 
   <div id="p{{paragraph.id}}_html"
        class="resultContained"
-       ng-if="getResultType() == 'HTML'">
+       ng-if="paragraph.result.type == 'HTML'">
   </div>
 
   <div id="p{{paragraph.id}}_angular"
        class="resultContained"
-       ng-if="getResultType() == 'ANGULAR'">
+       ng-if="paragraph.result.type == 'ANGULAR'">
   </div>
 
   <img id="{{paragraph.id}}_img"
-       ng-if="getResultType() == 'IMG'"
+       ng-if="paragraph.result.type == 'IMG'"
        ng-src="{{getBase64ImageSrc(paragraph.result.msg)}}">
   </img>
 
   <div id="{{paragraph.id}}_error"
-       class="error text"
+       class="error"
        ng-if="paragraph.status == 'ERROR'"
        ng-bind="paragraph.errorMessage">
   </div>

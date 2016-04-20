@@ -22,7 +22,6 @@ package org.apache.zeppelin.interpreter;
  */
 public class InterpreterOption {
   boolean remote;
-  boolean perNoteSession;
 
   public InterpreterOption() {
     remote = false;
@@ -38,13 +37,5 @@ public class InterpreterOption {
 
   public void setRemote(boolean remote) {
     this.remote = remote;
-  }
-
-  public boolean isPerNoteSession() {
-    return perNoteSession;
-  }
-
-  public void setPerNoteSession(boolean perNoteSession) {
-    this.perNoteSession = perNoteSession;
   }
 }

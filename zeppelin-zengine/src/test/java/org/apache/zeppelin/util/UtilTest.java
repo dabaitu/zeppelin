@@ -97,10 +97,4 @@ public class UtilTest extends TestCase {
 		assertEquals("array <STRUCT<STRING>> tags", t[0]);
 		assertEquals("aa", t[2]);
 	}
-
-	public void testGetVersion(){
-		String version = Util.getVersion();
-		assertNotNull(version);
-		System.out.println(version);
-	}
 }

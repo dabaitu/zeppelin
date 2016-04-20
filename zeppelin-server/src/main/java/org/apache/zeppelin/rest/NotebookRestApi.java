@@ -18,12 +18,14 @@
 package org.apache.zeppelin.rest;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -37,7 +39,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.interpreter.InterpreterSetting;
 import org.apache.zeppelin.notebook.Note;
 import org.apache.zeppelin.notebook.Notebook;
-import org.apache.zeppelin.notebook.NotebookAuthorization;
 import org.apache.zeppelin.notebook.Paragraph;
 import org.apache.zeppelin.rest.message.CronRequest;
 import org.apache.zeppelin.rest.message.InterpreterSettingListForNoteBind;
@@ -54,9 +55,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.google.gson.GsonBuilder;
-import com.google.gson.stream.JsonReader;
-import java.io.StringReader;
+
 /**
  * Rest api endpoint for the noteBook.
  */
@@ -68,7 +67,6 @@ public class NotebookRestApi {
   private Notebook notebook;
   private NotebookServer notebookServer;
   private SearchService notebookIndex;
-  private NotebookAuthorization notebookAuthorization;
 
   @Context
   private HttpServletRequest servReq;
@@ -79,30 +77,6 @@ public class NotebookRestApi {
     this.notebook = notebook;
     this.notebookServer = notebookServer;
     this.notebookIndex = search;
-    this.notebookAuthorization = notebook.getNotebookAuthorization();
-  }
-
-  /**
-   * get note authorization information
-   */
-  @GET
-  @Path("{noteId}/permissions")
-  public Response getNotePermissions(@PathParam("noteId") String noteId) {
-    Note note = notebook.getNote(noteId);
-    HashMap<String, Set<String>> permissionsMap = new HashMap();
-    permissionsMap.put("owners", notebookAuthorization.getOwners(noteId));
-    permissionsMap.put("readers", notebookAuthorization.getReaders(noteId));
-    permissionsMap.put("writers", notebookAuthorization.getWriters(noteId));
-    return new JsonResponse<>(Status.OK, "", permissionsMap).build();
-  }
-
-  String ownerPermissionError(Set<String> current,
-                              Set<String> allowed) throws IOException {
-    LOG.info("Cannot change permissions. Connection owners {}. Allowed owners {}",
-            current.toString(), allowed.toString());
-    return "Insufficient privileges to change permissions.\n\n" +
-            "Allowed owners: " + allowed.toString() + "\n\n" +
-            "User belongs to: " + current.toString();
   }
 
   private HashSet<String> getUserAndGroups() {
@@ -117,42 +91,52 @@ public class NotebookRestApi {
     return userAndGroups;
   }
 
+  String ownerPermissionError(HashSet<String> userAndGroups, Note note)  throws IOException {
+    LOG.info("Cannot change permissions. Connection owners {}. Allowed onwers {}",
+            userAndGroups, note.getOwners());
+    return "Insufficient privileges to change permissions.\n" +
+                    "Allowed owners: " + note.getOwners().toString() + "\n" +
+                    "User belongs to: " + userAndGroups.toString();
+  }
+
   /**
-   * set note authorization information
+   * list note owners
+   */
+  @GET
+  @Path("{noteId}/permissions")
+  public Response getNotePermissions(@PathParam("noteId") String noteId) {
+    Note note = notebook.getNote(noteId);
+    HashMap<String, HashSet> permissionsMap = new HashMap<String, HashSet>();
+    permissionsMap.put("owners", note.getOwners());
+    permissionsMap.put("readers", note.getReaders());
+    permissionsMap.put("writers", note.getWriters());
+    return new JsonResponse<>(Status.OK, "", permissionsMap).build();
+  }
+
+  /**
+   * Set note owners
    */
   @PUT
   @Path("{noteId}/permissions")
   public Response putNotePermissions(@PathParam("noteId") String noteId, String req)
       throws IOException {
+    HashSet<String> userAndGroups = getUserAndGroups();
+    LOG.debug("Request credentials {}", userAndGroups);
     HashMap<String, HashSet> permMap = gson.fromJson(req,
             new TypeToken<HashMap<String, HashSet>>(){}.getType());
     Note note = notebook.getNote(noteId);
-//    String principal = SecurityUtils.getPrincipal();
-//    HashSet<String> roles = SecurityUtils.getRoles();
-    LOG.info("Set permissions {} {} {} {} {}",
-            noteId,
-            SecurityUtils.getUser(servReq),
-            permMap.get("owners"),
+    LOG.debug("Set permissions {} {} {}", permMap.get("owners"),
             permMap.get("readers"),
-            permMap.get("writers")
-    );
-
-//    HashSet<String> userAndRoles = new HashSet<String>();
-//    userAndRoles.add(principal);
-//    userAndRoles.addAll(roles);
-
-    HashSet<String> userAndRoles = getUserAndGroups();
-    if (!notebookAuthorization.isOwner(noteId, userAndRoles)) {
-      return new JsonResponse<>(Status.FORBIDDEN, ownerPermissionError(userAndRoles,
-              notebookAuthorization.getOwners(noteId))).build();
+            permMap.get("writers"));
+    if (!note.isOwner(getUserAndGroups())) {
+      return new JsonResponse<>(Status.FORBIDDEN, ownerPermissionError(userAndGroups,
+              note)).build();
     }
-    notebookAuthorization.setOwners(noteId, permMap.get("owners"));
-    notebookAuthorization.setReaders(noteId, permMap.get("readers"));
-    notebookAuthorization.setWriters(noteId, permMap.get("writers"));
-    LOG.debug("After set permissions {} {} {}",
-            notebookAuthorization.getOwners(noteId),
-            notebookAuthorization.getReaders(noteId),
-            notebookAuthorization.getWriters(noteId));
+    note.setOwners(permMap.get("owners"));
+    note.setReaders(permMap.get("readers"));
+    note.setWriters(permMap.get("writers"));
+    LOG.debug("After set permissions {} {} {}", note.getOwners(), note.getReaders(),
+            note.getWriters());
     note.persist();
     notebookServer.broadcastNote(note);
     return new JsonResponse<>(Status.OK).build();
@@ -185,7 +169,7 @@ public class NotebookRestApi {
           setting.id(),
           setting.getName(),
           setting.getGroup(),
-          setting.getInterpreterInfos(),
+          setting.getInterpreterGroup(),
           true)
       );
     }
@@ -205,7 +189,7 @@ public class NotebookRestApi {
             setting.id(),
             setting.getName(),
             setting.getGroup(),
-            setting.getInterpreterInfos(),
+            setting.getInterpreterGroup(),
             false)
         );
       }
@@ -220,8 +204,8 @@ public class NotebookRestApi {
     return new JsonResponse<>(Status.OK, "", notesInfo ).build();
   }
 
-  @GET
-  @Path("{notebookId}")
+//  @GET
+//  @Path("{notebookId}")
   public Response getNotebook(@PathParam("notebookId") String notebookId) throws IOException {
     Note note = notebook.getNote(notebookId);
     if (note == null) {
@@ -232,41 +216,13 @@ public class NotebookRestApi {
   }
 
   /**
-   * export note REST API
-   *
-   * @param
-   * @return note JSON with status.OK
-   * @throws IOException
-   */
-  @GET
-  @Path("export/{id}")
-  public Response exportNoteBook(@PathParam("id") String noteId) throws IOException {
-    String exportJson = notebook.exportNote(noteId);
-    return new JsonResponse(Status.OK, "", exportJson).build();
-  }
-
-  /**
-   * import new note REST API
-   *
-   * @param req - notebook Json
-   * @return JSON with new note ID
-   * @throws IOException
-   */
-  @POST
-  @Path("import")
-  public Response importNotebook(String req) throws IOException {
-    Note newNote = notebook.importNote(req, null);
-    return new JsonResponse<>(Status.CREATED, "", newNote.getId()).build();
-  }
-
-  /**
    * Create new note REST API
    * @param message - JSON with new note name
    * @return JSON with new note ID
    * @throws IOException
    */
-  @POST
-  @Path("/")
+//  @POST
+//  @Path("/")
   public Response createNote(String message) throws IOException {
     LOG.info("Create new notebook by JSON {}" , message);
     NewNotebookRequest request = gson.fromJson(message,
@@ -298,8 +254,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException
    */
-  @DELETE
-  @Path("{notebookId}")
+//  @DELETE
+//  @Path("{notebookId}")
   public Response deleteNote(@PathParam("notebookId") String notebookId) throws IOException {
     LOG.info("Delete notebook {} ", notebookId);
     if (!(notebookId.isEmpty())) {
@@ -318,8 +274,8 @@ public class NotebookRestApi {
    * @return JSON with status.CREATED
    * @throws IOException, CloneNotSupportedException, IllegalArgumentException
    */
-  @POST
-  @Path("{notebookId}")
+//  @POST
+//  @Path("{notebookId}")
   public Response cloneNote(@PathParam("notebookId") String notebookId, String message) throws
       IOException, CloneNotSupportedException, IllegalArgumentException {
     LOG.info("clone notebook by JSON {}" , message);
@@ -338,8 +294,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException
    */
-  @POST
-  @Path("{notebookId}/paragraph")
+//  @POST
+//  @Path("{notebookId}/paragraph")
   public Response insertParagraph(@PathParam("notebookId") String notebookId, String message)
       throws IOException {
     LOG.info("insert paragraph {} {}", notebookId, message);
@@ -372,8 +328,8 @@ public class NotebookRestApi {
    * @return JSON with information of the paragraph
    * @throws IOException
    */
-  @GET
-  @Path("{notebookId}/paragraph/{paragraphId}")
+//  @GET
+//  @Path("{notebookId}/paragraph/{paragraphId}")
   public Response getParagraph(@PathParam("notebookId") String notebookId,
                                @PathParam("paragraphId") String paragraphId) throws IOException {
     LOG.info("get paragraph {} {}", notebookId, paragraphId);
@@ -397,8 +353,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException
    */
-  @POST
-  @Path("{notebookId}/paragraph/{paragraphId}/move/{newIndex}")
+//  @POST
+//  @Path("{notebookId}/paragraph/{paragraphId}/move/{newIndex}")
   public Response moveParagraph(@PathParam("notebookId") String notebookId,
                                 @PathParam("paragraphId") String paragraphId,
                                 @PathParam("newIndex") String newIndex) throws IOException {
@@ -421,7 +377,6 @@ public class NotebookRestApi {
       notebookServer.broadcastNote(note);
       return new JsonResponse(Status.OK, "").build();
     } catch (IndexOutOfBoundsException e) {
-      LOG.error("Exception in NotebookRestApi while moveParagraph ", e);
       return new JsonResponse(Status.BAD_REQUEST, "paragraph's new index is out of bound").build();
     }
   }
@@ -432,8 +387,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException
    */
-  @DELETE
-  @Path("{notebookId}/paragraph/{paragraphId}")
+//  @DELETE
+//  @Path("{notebookId}/paragraph/{paragraphId}")
   public Response deleteParagraph(@PathParam("notebookId") String notebookId,
                                   @PathParam("paragraphId") String paragraphId) throws IOException {
     LOG.info("delete paragraph {} {}", notebookId, paragraphId);
@@ -461,8 +416,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @POST
-  @Path("job/{notebookId}")
+//  @POST
+//  @Path("job/{notebookId}")
   public Response runNoteJobs(@PathParam("notebookId") String notebookId) throws
       IOException, IllegalArgumentException {
     LOG.info("run notebook jobs {} ", notebookId);
@@ -481,8 +436,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @DELETE
-  @Path("job/{notebookId}")
+//  @DELETE
+//  @Path("job/{notebookId}")
   public Response stopNoteJobs(@PathParam("notebookId") String notebookId) throws
       IOException, IllegalArgumentException {
     LOG.info("stop notebook jobs {} ", notebookId);
@@ -505,8 +460,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @GET
-  @Path("job/{notebookId}")
+//  @GET
+//  @Path("job/{notebookId}")
   public Response getNoteJobStatus(@PathParam("notebookId") String notebookId) throws
       IOException, IllegalArgumentException {
     LOG.info("get notebook job status.");
@@ -527,8 +482,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @POST
-  @Path("job/{notebookId}/{paragraphId}")
+//  @POST
+//  @Path("job/{notebookId}/{paragraphId}")
   public Response runParagraph(@PathParam("notebookId") String notebookId, 
                                @PathParam("paragraphId") String paragraphId,
                                String message) throws
@@ -566,8 +521,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @DELETE
-  @Path("job/{notebookId}/{paragraphId}")
+//  @DELETE
+//  @Path("job/{notebookId}/{paragraphId}")
   public Response stopParagraph(@PathParam("notebookId") String notebookId, 
                                 @PathParam("paragraphId") String paragraphId) throws
                                 IOException, IllegalArgumentException {
@@ -591,8 +546,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @POST
-  @Path("cron/{notebookId}")
+//  @POST
+//  @Path("cron/{notebookId}")
   public Response registerCronJob(@PathParam("notebookId") String notebookId, String message) throws
       IOException, IllegalArgumentException {
     LOG.info("Register cron job note={} request cron msg={}", notebookId, message);
@@ -623,8 +578,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @DELETE
-  @Path("cron/{notebookId}")
+//  @DELETE
+//  @Path("cron/{notebookId}")
   public Response removeCronJob(@PathParam("notebookId") String notebookId) throws
       IOException, IllegalArgumentException {
     LOG.info("Remove cron job note {}", notebookId);
@@ -648,8 +603,8 @@ public class NotebookRestApi {
    * @return JSON with status.OK
    * @throws IOException, IllegalArgumentException
    */
-  @GET
-  @Path("cron/{notebookId}")
+//  @GET
+//  @Path("cron/{notebookId}")
   public Response getCronJob(@PathParam("notebookId") String notebookId) throws
       IOException, IllegalArgumentException {
     LOG.info("Get cron job note {}", notebookId);

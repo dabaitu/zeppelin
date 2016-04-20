@@ -1,6 +1,6 @@
     (Apache 2.0) nvd3.js v1.7.1 (http://nvd3.org/) - https://github.com/novus/nvd3/blob/v1.7.1/LICENSE.md
     (Apache 2.0) gson v2.2 (com.google.code.gson:gson:jar:2.2 - https://github.com/google/gson) - https://github.com/google/gson/blob/gson-2.2/LICENSE
-    (Apache 2.0) Amazon Web Services SDK for Java v1.10.62 (https://aws.amazon.com/sdk-for-java/) - https://raw.githubusercontent.com/aws/aws-sdk-java/1.10.62/LICENSE.txt
+    (Apache 2.0) Amazon Web Services SDK for Java v1.10.1 (https://aws.amazon.com/sdk-for-java/) - https://raw.githubusercontent.com/aws/aws-sdk-java/1.10.1/LICENSE.txt
     (Apache 2.0) JavaEWAH v0.7.9 (https://github.com/lemire/javaewah) - https://github.com/lemire/javaewah/blob/master/LICENSE-2.0.txt
 
 
@@ -37,7 +37,6 @@ The following components are provided under Apache License.
     (Apache 2.0) Apache Cassandra (http://cassandra.apache.org/)
     (Apache 2.0) Apache CXF (http://cxf.apache.org/)
     (Apache 2.0) Apache Hive (http://hive.apache.org/)
-    (Apache 2.0) Apache HBase (http://hbase.apache.org/)
     (Apache 2.0) Apache Ignite (http://ignite.apache.org/)
     (Apache 2.0) Apache Kylin (http://kylin.apache.org/)
     (Apache 2.0) Apache Lens (http://lens.apache.org/)
@@ -57,7 +56,6 @@ The following components are provided under Apache License.
     (Apache 2.0) javax.servlet (org.eclipse.jetty.orbit:javax.servlet:jar:3.0.0.v201112011016 - http://www.eclipse.org/jetty)
     (Apache 2.0) Joda-Time (joda-time:joda-time:2.8.1 - http://www.joda.org/joda-time/)
     (Apache 2.0) Jackson (org.codehaus.jackson:jackson-core-asl:1.9.13 - http://jackson.codehaus.org/)
-    (Apache 2.0) Javassist (org.javassist:javassist:jar:3.18.1-GA:compile - http://jboss-javassist.github.io/javassist/)
     (Apache 2.0) JetS3t (net.java.dev.jets3t:jets3t:jar:0.9.3) - http://www.jets3t.org/
     (Apache 2.0) Jetty (org.eclipse.jetty:jetty - http://www.eclipse.org/jetty)
     (Apache 2.0) mx4j (mx4j:mx4j:jar:3.0.2) - http://mx4j.sourceforge.net/
@@ -93,15 +91,7 @@ The following components are provided under Apache License.
     (Apache 2.0) Lucene Suggest (org.apache.lucene:lucene-suggest:5.3.1 - http://lucene.apache.org/lucene-parent/lucene-suggest)
     (Apache 2.0) Elasticsearch: Core (org.elasticsearch:elasticsearch:2.1.0 - http://nexus.sonatype.org/oss-repository-hosting.html/parent/elasticsearch)
     (Apache 2.0) Joda convert (org.joda:joda-convert:1.2 - http://joda-convert.sourceforge.net)
-    (Apache 2.0) Shiro Core (org.apache.shiro:shiro-core:1.2.3 - https://shiro.apache.org)
-    (Apache 2.0) Shiro Web (org.apache.shiro:shiro-web:1.2.3 - https://shiro.apache.org)
     (Apache 2.0) SnakeYAML (org.yaml:snakeyaml:1.15 - http://www.snakeyaml.org)
-    (Apache 2.0) Protocol Buffers (com.google.protobuf:protobuf-java:2.4.1 - https://github.com/google/protobuf/releases)
-    (Apache 2.0) Alluxio Shell (org.alluxio:alluxio-shell:1.0.0 - http://alluxio.org)
-    (Apache 2.0) Alluxio Servers (org.alluxio:alluxio-core-server:1.0.0 - http://alluxio.org)
-    (Apache 2.0) Alluxio Minicluster (org.alluxio:alluxio-minicluster:1.0.0 - http://alluxio.org)
-    (Apache 2.0) Alluxio Underfs Local (org.alluxio:alluxio-underfs-local:1.0.0 - http://alluxio.org)
-    (Apache 2.0) Microsoft Azure Storage Library for Java (com.microsoft.azure:azure-storage:4.0.0 - https://github.com/Azure/azure-storage-java)
 
 
 
@@ -158,8 +148,6 @@ The text of each license is also included at licenses/LICENSE-[project]-[version
     (BSD Style) dom4j v1.6.1 (http://www.dom4j.org) - https://github.com/dom4j/dom4j/blob/dom4j_1_6_1/LICENSE.txt
     (BSD Style) JSch v0.1.53 (http://www.jcraft.com) - http://www.jcraft.com/jsch/LICENSE.txt
     (BSD 3 Clause) highlightjs v8.4.0 (https://highlightjs.org/) - https://github.com/isagalaev/highlight.js/blob/8.4/LICENSE
-    (BSD 3 Clause) hamcrest v1.3 (http://hamcrest.org/JavaHamcrest/) - http://opensource.org/licenses/BSD-3-Clause
-    (BSD Style) JLine v2.12.1 (https://github.com/jline/jline2) - https://github.com/jline/jline2/blob/master/LICENSE.txt
 
 
 
@@ -188,10 +176,7 @@ CDDL license
 The following components are provided under the CDDL License.
 
     (CDDL 1.0) javax.activation (javax.activation:activation:jar:1.1.1 - http://java.sun.com/javase/technologies/desktop/javabeans/jaf/index.jsp)
-    (CDDL 1.0) java.annotation (javax.annotation:javax.annotation-api:jar:1.2:compile - http://jcp.org/en/jsr/detail?id=250)
     (CDDL 1.1) Jersey (com.sun.jersey:jersey:jar:1.9 - https://jersey.java.net/)
-    (CDDL 1.1) jersey-core (org.glassfish.jersey.core:jersey-core:2.22.2 - https://jersey.java.net/)
-    (CDDL 1.1) hk2 (org.glassfish.hk2 - https://hk2.java.net/2.5.0-b03/)
 
 
 
@@ -203,7 +188,6 @@ The following components are provided under the EPL License.
 
     (EPL 1.0) Aether (org.sonatype.aether - http://www.eclipse.org/aether/)
     (EPL 1.0) JDT Annotations For Enhanced Null Analysis (org.eclipse.jdt:org.eclipse.jdt.annotation:1.1.0 - https://repo.eclipse.org/content/repositories/eclipse-releases/org/eclipse/jdt/org.eclipse.jdt.annotation)
-    (EPL 1.0) JRuby (org.jruby.jruby-complete:v1.6.8 - http://www.jruby.org/)
 
 
 ========================================================================

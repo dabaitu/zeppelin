@@ -42,6 +42,7 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
   $scope.isNoteDirty = null;
   $scope.saveTimer = null;
 
+  var angularObjectRegistry = {};
   var connectedOnce = false;
 
   $scope.$on('setConnectedStatus', function(event, param) {
@@ -153,21 +154,6 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
         }
       }
     });
-  };
-
-  // checkpoint/commit notebook
-  $scope.checkpointNotebook = function(commitMessage) {
-    BootstrapDialog.confirm({
-      closable: true,
-      title: '',
-      message: 'Commit notebook to current repository?',
-      callback: function(result) {
-        if (result) {
-          websocketMsgSrv.checkpointNotebook($routeParams.noteId, commitMessage);
-        }
-      }
-    });
-    document.getElementById('note.checkpoint.message').value='';
   };
 
   $scope.runNote = function() {
@@ -495,9 +481,7 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
           paragraphToBeFocused = note.paragraphs[index].id;
           break;
         }
-        $scope.$broadcast('updateParagraph', {
-          note: $scope.note, // pass the note object to paragraph scope
-          paragraph: note.paragraphs[index]});
+        $scope.$broadcast('updateParagraph', {paragraph: note.paragraphs[index]});
       }
     }
 
@@ -506,9 +490,7 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
       for (var idx in newParagraphIds) {
         var newEntry = note.paragraphs[idx];
         if (oldParagraphIds[idx] === newParagraphIds[idx]) {
-          $scope.$broadcast('updateParagraph', {
-            note: $scope.note, // pass the note object to paragraph scope
-            paragraph: newEntry});
+          $scope.$broadcast('updateParagraph', {paragraph: newEntry});
         } else {
           // move paragraph
           var oldIdx = oldParagraphIds.indexOf(newParagraphIds[idx]);
@@ -664,6 +646,7 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
     getPermissions();
   };
 
+
   $scope.closePermissions = function() {
     if (isPermissionsDirty()) {
       BootstrapDialog.confirm({
@@ -692,11 +675,7 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
     }).
     error(function(data, status, headers, config) {
       console.log('Error %o %o', status, data.message);
-      BootstrapDialog.alert({
-        closable: true,
-        title: 'Insufficient privileges',
-        message: data.message
-      });
+      alert(data.message);
     });
   };
 
@@ -724,5 +703,52 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
       return true;
     }
   };
+
+  $scope.$on('angularObjectUpdate', function(event, data) {
+    if (data.noteId === $scope.note.id) {
+      var scope = $rootScope.compiledScope;
+      var varName = data.angularObject.name;
+
+      if (angular.equals(data.angularObject.object, scope[varName])) {
+        // return when update has no change
+        return;
+      }
+
+      if (!angularObjectRegistry[varName]) {
+        angularObjectRegistry[varName] = {
+          interpreterGroupId : data.interpreterGroupId,
+        };
+      }
+
+      angularObjectRegistry[varName].skipEmit = true;
+
+      if (!angularObjectRegistry[varName].clearWatcher) {
+        angularObjectRegistry[varName].clearWatcher = scope.$watch(varName, function(newValue, oldValue) {
+          if (angularObjectRegistry[varName].skipEmit) {
+            angularObjectRegistry[varName].skipEmit = false;
+            return;
+          }
+          websocketMsgSrv.updateAngularObject($routeParams.noteId, varName, newValue, angularObjectRegistry[varName].interpreterGroupId);
+        });
+      }
+      scope[varName] = data.angularObject.object;
+    }
+  });
+
+  $scope.$on('angularObjectRemove', function(event, data) {
+    if (!data.noteId || data.noteId === $scope.note.id) {
+      var scope = $rootScope.compiledScope;
+      var varName = data.name;
+
+      // clear watcher
+      if (angularObjectRegistry[varName]) {
+        angularObjectRegistry[varName].clearWatcher();
+        angularObjectRegistry[varName] = undefined;
+      }
+
+      // remove scope variable
+      scope[varName] = undefined;
+    }
+  });
 
 });

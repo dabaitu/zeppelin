@@ -146,8 +146,4 @@ public class InterpreterResult implements Serializable {
     this.type = type;
     return this;
   }
-
-  public String toString() {
-    return "%" + type.name().toLowerCase() + " " + msg;
-  }
 }

@@ -29,27 +29,19 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.apache.zeppelin.display.AngularObjectRegistry;
-import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.display.GUI;
-import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterContextRunner;
 import org.apache.zeppelin.interpreter.InterpreterGroup;
 import org.apache.zeppelin.interpreter.remote.RemoteInterpreter;
-import org.apache.zeppelin.interpreter.remote.RemoteInterpreterProcessListener;
 import org.apache.zeppelin.interpreter.remote.mock.MockInterpreterA;
-import org.apache.zeppelin.resource.LocalResourcePool;
 import org.apache.zeppelin.scheduler.Job.Status;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-public class RemoteSchedulerTest implements RemoteInterpreterProcessListener {
+public class RemoteSchedulerTest {
 
-  private static final String INTERPRETER_SCRIPT =
-          System.getProperty("os.name").startsWith("Windows") ?
-                  "../bin/interpreter.cmd" :
-                  "../bin/interpreter.sh";
   private SchedulerFactory schedulerSvc;
   private static final int TICK_WAIT = 100;
   private static final int MAX_WAIT_CYCLES = 100;
@@ -73,22 +65,19 @@ public class RemoteSchedulerTest implements RemoteInterpreterProcessListener {
 
     final RemoteInterpreter intpA = new RemoteInterpreter(
         p,
-        "note",
         MockInterpreterA.class.getName(),
-        new File(INTERPRETER_SCRIPT).getAbsolutePath(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
         "fake",
-        "fakeRepo",
         env,
-        10 * 1000,
-        this);
+        10 * 1000
+        );
 
-    intpGroup.put("note", new LinkedList<Interpreter>());
-    intpGroup.get("note").add(intpA);
+    intpGroup.add(intpA);
     intpA.setInterpreterGroup(intpGroup);
 
     intpA.open();
 
-    Scheduler scheduler = schedulerSvc.createOrGetRemoteScheduler("test", "note",
+    Scheduler scheduler = schedulerSvc.createOrGetRemoteScheduler("test",
         intpA.getInterpreterProcess(),
         10);
 
@@ -111,12 +100,10 @@ public class RemoteSchedulerTest implements RemoteInterpreterProcessListener {
             "jobId",
             "title",
             "text",
-            new AuthenticationInfo(),
             new HashMap<String, Object>(),
             new GUI(),
             new AngularObjectRegistry(intpGroup.getId(), null),
-            new LocalResourcePool("pool1"),
-            new LinkedList<InterpreterContextRunner>(), null));
+            new LinkedList<InterpreterContextRunner>(), null, null));
         return "1000";
       }
 
@@ -161,22 +148,19 @@ public class RemoteSchedulerTest implements RemoteInterpreterProcessListener {
 
     final RemoteInterpreter intpA = new RemoteInterpreter(
         p,
-        "note",
         MockInterpreterA.class.getName(),
-        new File(INTERPRETER_SCRIPT).getAbsolutePath(),
+        new File("../bin/interpreter.sh").getAbsolutePath(),
         "fake",
-        "fakeRepo",
         env,
-        10 * 1000,
-        this);
+        10 * 1000
+        );
 
-    intpGroup.put("note", new LinkedList<Interpreter>());
-    intpGroup.get("note").add(intpA);
+    intpGroup.add(intpA);
     intpA.setInterpreterGroup(intpGroup);
 
     intpA.open();
 
-    Scheduler scheduler = schedulerSvc.createOrGetRemoteScheduler("test", "note",
+    Scheduler scheduler = schedulerSvc.createOrGetRemoteScheduler("test",
         intpA.getInterpreterProcess(),
         10);
 
@@ -186,12 +170,10 @@ public class RemoteSchedulerTest implements RemoteInterpreterProcessListener {
           "jobId1",
           "title",
           "text",
-          new AuthenticationInfo(),
           new HashMap<String, Object>(),
           new GUI(),
           new AngularObjectRegistry(intpGroup.getId(), null),
-          new LocalResourcePool("pool1"),
-          new LinkedList<InterpreterContextRunner>(), null);
+          new LinkedList<InterpreterContextRunner>(), null, null);
 
       @Override
       public int progress() {
@@ -224,12 +206,10 @@ public class RemoteSchedulerTest implements RemoteInterpreterProcessListener {
           "jobId2",
           "title",
           "text",
-          new AuthenticationInfo(),
           new HashMap<String, Object>(),
           new GUI(),
           new AngularObjectRegistry(intpGroup.getId(), null),
-          new LocalResourcePool("pool1"),
-          new LinkedList<InterpreterContextRunner>(), null);
+          new LinkedList<InterpreterContextRunner>(), null, null);
 
       @Override
       public int progress() {
@@ -288,13 +268,4 @@ public class RemoteSchedulerTest implements RemoteInterpreterProcessListener {
     schedulerSvc.removeScheduler("test");
   }
 
-  @Override
-  public void onOutputAppend(String noteId, String paragraphId, String output) {
-
-  }
-
-  @Override
-  public void onOutputUpdated(String noteId, String paragraphId, String output) {
-
-  }
 }

@@ -297,7 +297,6 @@ public class PostgreSqlInterpreter extends Interpreter {
       try {
         currentStatement.cancel();
       } catch (SQLException ex) {
-        logger.error("SQLException in PostgreSqlInterpreter while cancel ", ex);
       } finally {
         currentStatement = null;
       }

@@ -19,20 +19,19 @@ package org.apache.zeppelin.shell;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
+
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.DefaultExecutor;
 import org.apache.commons.exec.ExecuteException;
 import org.apache.commons.exec.ExecuteWatchdog;
-import org.apache.commons.exec.Executor;
 import org.apache.commons.exec.PumpStreamHandler;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
-import org.apache.zeppelin.interpreter.InterpreterPropertyBuilder;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
-import org.apache.zeppelin.scheduler.Job;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 import org.slf4j.Logger;
@@ -43,27 +42,10 @@ import org.slf4j.LoggerFactory;
  */
 public class ShellInterpreter extends Interpreter {
   Logger logger = LoggerFactory.getLogger(ShellInterpreter.class);
-  private static final String EXECUTOR_KEY = "executor";
-  public static final String SHELL_COMMAND_TIMEOUT = "shell.command.timeout.millisecs";
-  public static final String DEFAULT_COMMAND_TIMEOUT = "600000";
-  int commandTimeOut;
-  private static final boolean isWindows = System
-          .getProperty("os.name")
-          .startsWith("Windows");
-  final String shell = isWindows ? "cmd /c" : "bash -c";
+  int commandTimeOut = 600000;
 
   static {
-    Interpreter.register(
-            "sh",
-            "sh",
-            ShellInterpreter.class.getName(),
-            new InterpreterPropertyBuilder()
-              .add(
-                SHELL_COMMAND_TIMEOUT,
-                DEFAULT_COMMAND_TIMEOUT,
-                "Shell command time out in millisecs. Default = 600000")
-              .build()
-    );
+    Interpreter.register("sh", ShellInterpreter.class.getName());
   }
 
   public ShellInterpreter(Properties property) {
@@ -71,11 +53,7 @@ public class ShellInterpreter extends Interpreter {
   }
 
   @Override
-  public void open() {
-    logger.info("Command timeout is set as:", SHELL_COMMAND_TIMEOUT);
-
-    commandTimeOut = Integer.valueOf(getProperty(SHELL_COMMAND_TIMEOUT));
-  }
+  public void open() {}
 
   @Override
   public void close() {}
@@ -83,71 +61,41 @@ public class ShellInterpreter extends Interpreter {
 
   @Override
   public InterpreterResult interpret(String cmd, InterpreterContext contextInterpreter) {
-    logger.debug("Run shell command '" + cmd + "'");
-    CommandLine cmdLine = CommandLine.parse(shell);
-    // the Windows CMD shell doesn't handle multiline statements,
-    // they need to be delimited by '&&' instead
-    if (isWindows) {
-      String[] lines = StringUtils.split(cmd, "\n");
-      cmd = StringUtils.join(lines, " && ");
+    String user = contextInterpreter.getExecutingUser();
+    logger.info("Run shell command '" + cmd + "'" + " as " + user);
+
+    // TODO(pwagle) use ldap group, get from config file
+    String [] allowedUsers = {"pwagle", "rohanr", "jsreeram", "srikantht", "ankitg", "jsprowl"};
+    List <String> list = Arrays.asList(allowedUsers);
+    if (!list.contains(user)) {
+      logger.error("Cannot run shell command '" + cmd + "'" + " as " + user);
+      return new InterpreterResult(Code.ERROR, "User is not allowed to run shell command " + user);
     }
+
+    long start = System.currentTimeMillis();
+    CommandLine cmdLine = CommandLine.parse("bash");
+    cmdLine.addArgument("-c", false);
     cmdLine.addArgument(cmd, false);
     DefaultExecutor executor = new DefaultExecutor();
-    ByteArrayOutputStream errorStream = new ByteArrayOutputStream();
-    executor.setStreamHandler(new PumpStreamHandler(contextInterpreter.out, errorStream));
-    executor.setWatchdog(new ExecuteWatchdog(commandTimeOut));
+    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+    executor.setStreamHandler(new PumpStreamHandler(outputStream));
 
-    Job runningJob = getRunningJob(contextInterpreter.getParagraphId());
-    Map<String, Object> info = runningJob.info();
-    info.put(EXECUTOR_KEY, executor);
+    executor.setWatchdog(new ExecuteWatchdog(commandTimeOut));
     try {
-      int exitVal = executor.execute(cmdLine);
-      logger.info("Paragraph " + contextInterpreter.getParagraphId()
-          + "return with exit value: " + exitVal);
-      return new InterpreterResult(InterpreterResult.Code.SUCCESS, null);
+      int exitValue = executor.execute(cmdLine);
+      return new InterpreterResult(InterpreterResult.Code.SUCCESS, outputStream.toString());
     } catch (ExecuteException e) {
-      int exitValue = e.getExitValue();
       logger.error("Can not run " + cmd, e);
-      Code code = Code.ERROR;
-      String msg = errorStream.toString();
-      if (exitValue == 143) {
-        code = Code.INCOMPLETE;
-        msg = msg + "Paragraph received a SIGTERM.\n";
-        logger.info("The paragraph " + contextInterpreter.getParagraphId()
-            + " stopped executing: " + msg);
-      }
-      msg += "ExitValue: " + exitValue;
-      return new InterpreterResult(code, msg);
+      return new InterpreterResult(Code.ERROR, e.getMessage());
     } catch (IOException e) {
       logger.error("Can not run " + cmd, e);
       return new InterpreterResult(Code.ERROR, e.getMessage());
     }
   }
 
-  private Job getRunningJob(String paragraphId) {
-    Job foundJob = null;
-    Collection<Job> jobsRunning = getScheduler().getJobsRunning();
-    for (Job job : jobsRunning) {
-      if (job.getId().equals(paragraphId)) {
-        foundJob = job;
-      }
-    }
-    return foundJob;
-  }
-
   @Override
-  public void cancel(InterpreterContext context) {
-    Job runningJob = getRunningJob(context.getParagraphId());
-    if (runningJob != null) {
-      Map<String, Object> info = runningJob.info();
-      Object object = info.get(EXECUTOR_KEY);
-      if (object != null) {
-        Executor executor = (Executor) object;
-        ExecuteWatchdog watchdog = executor.getWatchdog();
-        watchdog.destroyProcess();
-      }
-    }
-  }
+  public void cancel(InterpreterContext context) {}
+
   @Override
   public FormType getFormType() {
     return FormType.SIMPLE;
@@ -160,8 +108,8 @@ public class ShellInterpreter extends Interpreter {
 
   @Override
   public Scheduler getScheduler() {
-    return SchedulerFactory.singleton().createOrGetParallelScheduler(
-        ShellInterpreter.class.getName() + this.hashCode(), 10);
+    return SchedulerFactory.singleton().createOrGetFIFOScheduler(
+        ShellInterpreter.class.getName() + this.hashCode());
   }
 
   @Override

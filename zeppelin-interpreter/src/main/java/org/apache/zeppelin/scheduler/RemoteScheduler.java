@@ -17,6 +17,12 @@
 
 package org.apache.zeppelin.scheduler;
 
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+
 import org.apache.thrift.TException;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
@@ -25,12 +31,6 @@ import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterService.Client;
 import org.apache.zeppelin.scheduler.Job.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
 
 /**
  * RemoteScheduler runs in ZeppelinServer and proxies Scheduler running on RemoteInterpreter
@@ -45,16 +45,14 @@ public class RemoteScheduler implements Scheduler {
   boolean terminate = false;
   private String name;
   private int maxConcurrency;
-  private final String noteId;
   private RemoteInterpreterProcess interpreterProcess;
 
-  public RemoteScheduler(String name, ExecutorService executor, String noteId,
+  public RemoteScheduler(String name, ExecutorService executor,
       RemoteInterpreterProcess interpreterProcess, SchedulerListener listener,
       int maxConcurrency) {
     this.name = name;
     this.executor = executor;
     this.listener = listener;
-    this.noteId = noteId;
     this.interpreterProcess = interpreterProcess;
     this.maxConcurrency = maxConcurrency;
   }
@@ -69,7 +67,6 @@ public class RemoteScheduler implements Scheduler {
           try {
             queue.wait(500);
           } catch (InterruptedException e) {
-            logger.error("Exception in RemoteScheduler while run queue.wait", e);
           }
           continue;
         }
@@ -89,8 +86,6 @@ public class RemoteScheduler implements Scheduler {
           try {
             queue.wait(500);
           } catch (InterruptedException e) {
-            logger.error("Exception in RemoteScheduler while jobRunner.isJobSubmittedInRemote " +
-                "queue.wait", e);
           }
         }
       }
@@ -199,7 +194,6 @@ public class RemoteScheduler implements Scheduler {
           try {
             this.wait(interval);
           } catch (InterruptedException e) {
-            logger.error("Exception in RemoteScheduler while run this.wait", e);
           }
         }
 
@@ -259,7 +253,7 @@ public class RemoteScheduler implements Scheduler {
 
       boolean broken = false;
       try {
-        String statusStr = client.getStatus(noteId, job.getId());
+        String statusStr = client.getStatus(job.getId());
         if ("Unknown".equals(statusStr)) {
           // not found this job in the remote schedulers.
           // maybe not submitted, maybe already finished

@@ -36,9 +36,4 @@ public interface NotebookRepo {
    * Release any underlying resources
    */
   public void close();
-
-  /**
-   * chekpoint (versioning) for notebooks (optional)
-   */
-  public void checkpoint(String noteId, String checkPointName) throws IOException;
 }

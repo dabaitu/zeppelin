@@ -22,8 +22,6 @@ import java.util.Map;
 
 import org.apache.zeppelin.scheduler.Job;
 import org.apache.zeppelin.scheduler.JobListener;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class SleepingJob extends Job{
 
@@ -31,8 +29,6 @@ public class SleepingJob extends Job{
 	boolean abort = false;
 	private long start;
 	private int count;
-
-	static Logger LOGGER = LoggerFactory.getLogger(SleepingJob.class);
 
 
 	public SleepingJob(String jobName, JobListener listener, int time){
@@ -48,7 +44,6 @@ public class SleepingJob extends Job{
 			try {
 				Thread.sleep(10);
 			} catch (InterruptedException e) {
-				LOGGER.error("Exception in MockInterpreterAngular while interpret Thread.sleep", e);
 			}
 			if(System.currentTimeMillis() - start>time) break;
 		}

@@ -17,9 +17,6 @@
 
 package org.apache.zeppelin.interpreter.remote;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -29,7 +26,6 @@ import java.net.Socket;
  *
  */
 public class RemoteInterpreterUtils {
-  static Logger LOGGER = LoggerFactory.getLogger(RemoteInterpreterUtils.class);
   public static int findRandomAvailablePortOnAllLocalInterfaces() throws IOException {
     int port;
     try (ServerSocket socket = new ServerSocket(0);) {
@@ -47,8 +43,6 @@ public class RemoteInterpreterUtils {
       discover.close();
       return true;
     } catch (IOException e) {
-      // end point is not accessible
-      LOGGER.debug(e.getMessage(), e);
       return false;
     }
   }

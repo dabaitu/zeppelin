@@ -34,7 +34,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.fail;
 
@@ -45,7 +44,7 @@ public class WebDriverManager {
 
   private static String downLoadsDir = "";
 
-  public static WebDriver getWebDriver() {
+  static WebDriver getWebDriver() {
     WebDriver driver = null;
 
     if (driver == null) {
@@ -86,7 +85,6 @@ public class WebDriverManager {
 
         driver = new FirefoxDriver(ffox, profile);
       } catch (Exception e) {
-        LOG.error("Exception in WebDriverManager while FireFox Driver ", e);
       }
     }
 
@@ -94,7 +92,6 @@ public class WebDriverManager {
       try {
         driver = new ChromeDriver();
       } catch (Exception e) {
-        LOG.error("Exception in WebDriverManager while ChromeDriver ", e);
       }
     }
 
@@ -102,21 +99,18 @@ public class WebDriverManager {
       try {
         driver = new SafariDriver();
       } catch (Exception e) {
-        LOG.error("Exception in WebDriverManager while SafariDriver ", e);
       }
     }
 
     String url;
-    if (System.getenv("url") != null) {
-      url = System.getenv("url");
+    if (System.getProperty("url") != null) {
+      url = System.getProperty("url");
     } else {
       url = "http://localhost:8080";
     }
 
     long start = System.currentTimeMillis();
     boolean loaded = false;
-    driver.manage().timeouts().implicitlyWait(AbstractZeppelinIT.MAX_IMPLICIT_WAIT,
-        TimeUnit.SECONDS);
     driver.get(url);
 
     while (System.currentTimeMillis() - start < 60 * 1000) {
@@ -132,7 +126,6 @@ public class WebDriverManager {
         loaded = true;
         break;
       } catch (TimeoutException e) {
-        LOG.info("Exception in WebDriverManager while WebDriverWait ", e);
         driver.navigate().to(url);
       }
     }
@@ -171,6 +164,7 @@ public class WebDriverManager {
 
     } catch (IOException e) {
       LOG.error("Download of firebug version: " + firefoxVersion + ", falied in path " + tempPath);
+      LOG.error(e.toString());
     }
     LOG.info("Download of firebug version: " + firefoxVersion + ", successful");
   }
@@ -184,7 +178,7 @@ public class WebDriverManager {
       String versionString = (String) CommandExecutor.executeCommandLocalHost(firefoxVersionCmd, false, ProcessData.Types_Of_Data.OUTPUT);
       return Integer.valueOf(versionString.replaceAll("Mozilla Firefox", "").trim().substring(0, 2));
     } catch (Exception e) {
-      LOG.error("Exception in WebDriverManager while getWebDriver ", e);
+      e.printStackTrace();
       return -1;
     }
   }

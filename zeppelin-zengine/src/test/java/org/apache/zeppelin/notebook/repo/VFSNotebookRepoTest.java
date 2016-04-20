@@ -27,11 +27,13 @@ import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.conf.ZeppelinConfiguration.ConfVars;
-import org.apache.zeppelin.dep.DependencyResolver;
 import org.apache.zeppelin.interpreter.InterpreterFactory;
 import org.apache.zeppelin.interpreter.InterpreterOption;
 import org.apache.zeppelin.interpreter.mock.MockInterpreter1;
-import org.apache.zeppelin.notebook.*;
+import org.apache.zeppelin.notebook.JobListenerFactory;
+import org.apache.zeppelin.notebook.Note;
+import org.apache.zeppelin.notebook.Notebook;
+import org.apache.zeppelin.notebook.Paragraph;
 import org.apache.zeppelin.scheduler.JobListener;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 import org.apache.zeppelin.search.SearchService;
@@ -49,7 +51,6 @@ public class VFSNotebookRepoTest implements JobListenerFactory {
   private Notebook notebook;
   private NotebookRepo notebookRepo;
   private InterpreterFactory factory;
-  private DependencyResolver depResolver;
 
   private File mainZepDir;
   private File mainNotebookDir;
@@ -75,12 +76,11 @@ public class VFSNotebookRepoTest implements JobListenerFactory {
     MockInterpreter1.register("mock1", "org.apache.zeppelin.interpreter.mock.MockInterpreter1");
 
     this.schedulerFactory = new SchedulerFactory();
-    depResolver = new DependencyResolver(mainZepDir.getAbsolutePath() + "/local-repo");
-    factory = new InterpreterFactory(conf, new InterpreterOption(false), null, null, depResolver);
+    factory = new InterpreterFactory(conf, new InterpreterOption(false), null);
 
     SearchService search = mock(SearchService.class);
     notebookRepo = new VFSNotebookRepo(conf);
-    notebook = new Notebook(conf, notebookRepo, schedulerFactory, factory, this, search, null);
+    notebook = new Notebook(conf, notebookRepo, schedulerFactory, factory, this, search);
   }
 
   @After
@@ -88,20 +88,6 @@ public class VFSNotebookRepoTest implements JobListenerFactory {
     if (!FileUtils.deleteQuietly(mainZepDir)) {
       LOG.error("Failed to delete {} ", mainZepDir.getName());
     }
-  }
-
-  @Test
-  public void testInvalidJsonFile() throws IOException {
-    // given
-    int numNotes = notebookRepo.list().size();
-
-    // when create invalid json file
-    File testNoteDir = new File(mainNotebookDir, "test");
-    testNoteDir.mkdir();
-    FileUtils.writeStringToFile(new File(testNoteDir, "note.json"), "");
-
-    // then
-    assertEquals(numNotes, notebookRepo.list().size());
   }
 
   @Test
@@ -148,13 +134,13 @@ public class VFSNotebookRepoTest implements JobListenerFactory {
       try {
         notebookRepo.save(note);
       } catch (IOException e) {
-        LOG.error(e.toString(), e);
+        e.printStackTrace();
       }
     }
   }
 
   @Override
-  public ParagraphJobListener getParagraphJobListener(Note note) {
+  public JobListener getParagraphJobListener(Note note) {
     return null;
   }
 }

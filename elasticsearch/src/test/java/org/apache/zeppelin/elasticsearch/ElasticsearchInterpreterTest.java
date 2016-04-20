@@ -198,14 +198,4 @@ public class ElasticsearchInterpreterTest {
     assertEquals("11", res.message());
   }
 
-  @Test
-  public void testMisc() {
-
-    InterpreterResult res = interpreter.interpret(null, null);
-    assertEquals(Code.SUCCESS, res.code());
-
-    res = interpreter.interpret("   \n \n ", null);
-    assertEquals(Code.SUCCESS, res.code());
-  }
-
 }

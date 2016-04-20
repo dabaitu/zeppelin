@@ -19,17 +19,20 @@ package org.apache.zeppelin.spark;
 
 import static scala.collection.JavaConversions.asJavaCollection;
 import static scala.collection.JavaConversions.asJavaIterable;
-import static scala.collection.JavaConversions.asScalaIterable;
+import static scala.collection.JavaConversions.collectionAsScalaIterable;
 
-import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.SQLContext.QueryExecution;
 import org.apache.spark.sql.catalyst.expressions.Attribute;
 import org.apache.spark.sql.hive.HiveContext;
 import org.apache.zeppelin.display.AngularObject;
@@ -40,30 +43,30 @@ import org.apache.zeppelin.display.Input.ParamOption;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterContextRunner;
 import org.apache.zeppelin.interpreter.InterpreterException;
-import org.apache.zeppelin.spark.dep.SparkDependencyResolver;
-import org.apache.zeppelin.resource.Resource;
-import org.apache.zeppelin.resource.ResourcePool;
-import org.apache.zeppelin.resource.ResourceSet;
+import org.apache.zeppelin.spark.dep.DependencyResolver;
 
 import scala.Tuple2;
 import scala.Unit;
+import scala.collection.Iterable;
 
 /**
  * Spark context for zeppelin.
  */
-public class ZeppelinContext {
-  private SparkDependencyResolver dep;
+public class ZeppelinContext extends HashMap<String, Object> {
+  private DependencyResolver dep;
+  private PrintStream out;
   private InterpreterContext interpreterContext;
   private int maxResult;
 
   public ZeppelinContext(SparkContext sc, SQLContext sql,
       InterpreterContext interpreterContext,
-      SparkDependencyResolver dep,
+      DependencyResolver dep, PrintStream printStream,
       int maxResult) {
     this.sc = sc;
     this.sqlContext = sql;
     this.interpreterContext = interpreterContext;
     this.dep = dep;
+    this.out = printStream;
     this.maxResult = maxResult;
   }
 
@@ -71,6 +74,127 @@ public class ZeppelinContext {
   public SQLContext sqlContext;
   public HiveContext hiveContext;
   private GUI gui;
+
+  /**
+   * Load dependency for interpreter and runtime (driver).
+   * And distribute them to spark cluster (sc.add())
+   *
+   * @param artifact "group:artifact:version" or file path like "/somepath/your.jar"
+   * @return
+   * @throws Exception
+   */
+  public Iterable<String> load(String artifact) throws Exception {
+    return collectionAsScalaIterable(dep.load(artifact, true));
+  }
+
+  /**
+   * Load dependency and it's transitive dependencies for interpreter and runtime (driver).
+   * And distribute them to spark cluster (sc.add())
+   *
+   * @param artifact "groupId:artifactId:version" or file path like "/somepath/your.jar"
+   * @param excludes exclusion list of transitive dependency. list of "groupId:artifactId" string.
+   * @return
+   * @throws Exception
+   */
+  public Iterable<String> load(String artifact, scala.collection.Iterable<String> excludes)
+      throws Exception {
+    return collectionAsScalaIterable(
+        dep.load(artifact,
+        asJavaCollection(excludes),
+        true));
+  }
+
+  /**
+   * Load dependency and it's transitive dependencies for interpreter and runtime (driver).
+   * And distribute them to spark cluster (sc.add())
+   *
+   * @param artifact "groupId:artifactId:version" or file path like "/somepath/your.jar"
+   * @param excludes exclusion list of transitive dependency. list of "groupId:artifactId" string.
+   * @return
+   * @throws Exception
+   */
+  public Iterable<String> load(String artifact, Collection<String> excludes) throws Exception {
+    return collectionAsScalaIterable(dep.load(artifact, excludes, true));
+  }
+
+  /**
+   * Load dependency for interpreter and runtime, and then add to sparkContext.
+   * But not adding them to spark cluster
+   *
+   * @param artifact "groupId:artifactId:version" or file path like "/somepath/your.jar"
+   * @return
+   * @throws Exception
+   */
+  public Iterable<String> loadLocal(String artifact) throws Exception {
+    return collectionAsScalaIterable(dep.load(artifact, false));
+  }
+
+
+  /**
+   * Load dependency and it's transitive dependencies and then add to sparkContext.
+   * But not adding them to spark cluster
+   *
+   * @param artifact "groupId:artifactId:version" or file path like "/somepath/your.jar"
+   * @param excludes exclusion list of transitive dependency. list of "groupId:artifactId" string.
+   * @return
+   * @throws Exception
+   */
+  public Iterable<String> loadLocal(String artifact,
+      scala.collection.Iterable<String> excludes) throws Exception {
+    return collectionAsScalaIterable(dep.load(artifact,
+        asJavaCollection(excludes), false));
+  }
+
+  /**
+   * Load dependency and it's transitive dependencies and then add to sparkContext.
+   * But not adding them to spark cluster
+   *
+   * @param artifact "groupId:artifactId:version" or file path like "/somepath/your.jar"
+   * @param excludes exclusion list of transitive dependency. list of "groupId:artifactId" string.
+   * @return
+   * @throws Exception
+   */
+  public Iterable<String> loadLocal(String artifact, Collection<String> excludes)
+      throws Exception {
+    return collectionAsScalaIterable(dep.load(artifact, excludes, false));
+  }
+
+
+  /**
+   * Add maven repository
+   *
+   * @param id id of repository ex) oss, local, snapshot
+   * @param url url of repository. supported protocol : file, http, https
+   */
+  public void addRepo(String id, String url) {
+    addRepo(id, url, false);
+  }
+
+  /**
+   * Add maven repository
+   *
+   * @param id id of repository
+   * @param url url of repository. supported protocol : file, http, https
+   * @param snapshot true if it is snapshot repository
+   */
+  public void addRepo(String id, String url, boolean snapshot) {
+    dep.addRepo(id, url, snapshot);
+  }
+
+  /**
+   * Remove maven repository by id
+   * @param id id of repository
+   */
+  public void removeRepo(String id){
+    dep.delRepo(id);
+  }
+
+  /**
+   * Load dependency only interpreter.
+   *
+   * @param name
+   * @return
+   */
 
   public Object input(String name) {
     return input(name, "");
@@ -86,27 +210,6 @@ public class ZeppelinContext {
 
   public Object select(String name, Object defaultValue,
       scala.collection.Iterable<Tuple2<Object, String>> options) {
-    return gui.select(name, defaultValue, tuplesToParamOptions(options));
-  }
-
-  public scala.collection.Iterable<Object> checkbox(String name,
-      scala.collection.Iterable<Tuple2<Object, String>> options) {
-    List<Object> allChecked = new LinkedList<Object>();
-    for (Tuple2<Object, String> option : asJavaIterable(options)) {
-      allChecked.add(option._1());
-    }
-    return checkbox(name, asScalaIterable(allChecked), options);
-  }
-
-  public scala.collection.Iterable<Object> checkbox(String name,
-      scala.collection.Iterable<Object> defaultChecked,
-      scala.collection.Iterable<Tuple2<Object, String>> options) {
-    return asScalaIterable(gui.checkbox(name, asJavaCollection(defaultChecked),
-      tuplesToParamOptions(options)));
-  }
-
-  private ParamOption[] tuplesToParamOptions(
-      scala.collection.Iterable<Tuple2<Object, String>> options) {
     int n = options.size();
     ParamOption[] paramOptions = new ParamOption[n];
     Iterator<Tuple2<Object, String>> it = asJavaIterable(options).iterator();
@@ -117,7 +220,7 @@ public class ZeppelinContext {
       paramOptions[i++] = new ParamOption(valueAndDisplayValue._1(), valueAndDisplayValue._2());
     }
 
-    return paramOptions;
+    return gui.select(name, "", paramOptions);
   }
 
   public void setGui(GUI o) {
@@ -170,15 +273,10 @@ public class ZeppelinContext {
       throw new InterpreterException("Can not road DataFrame/SchemaRDD class");
     }
 
-
-    try {
-      if (cls.isInstance(o)) {
-        interpreterContext.out.write(showDF(sc, interpreterContext, o, maxResult));
-      } else {
-        interpreterContext.out.write(o.toString());
-      }
-    } catch (IOException e) {
-      throw new InterpreterException(e);
+    if (cls.isInstance(o)) {
+      out.print(showDF(sc, interpreterContext, o, maxResult));
+    } else {
+      out.print(o.toString());
     }
   }
 
@@ -197,37 +295,39 @@ public class ZeppelinContext {
     try {
       take = df.getClass().getMethod("take", int.class);
       rows = (Object[]) take.invoke(df, maxResult + 1);
+
     } catch (NoSuchMethodException | SecurityException | IllegalAccessException
         | IllegalArgumentException | InvocationTargetException | ClassCastException e) {
       sc.clearJobGroup();
       throw new InterpreterException(e);
     }
 
-    List<Attribute> columns = null;
-    // get field names
-    try {
-      // Use reflection because of classname returned by queryExecution changes from
-      // Spark <1.5.2 org.apache.spark.sql.SQLContext$QueryExecution
-      // Spark 1.6.0> org.apache.spark.sql.hive.HiveContext$QueryExecution
-      Object qe = df.getClass().getMethod("queryExecution").invoke(df);
-      Object a = qe.getClass().getMethod("analyzed").invoke(qe);
-      scala.collection.Seq seq = (scala.collection.Seq) a.getClass().getMethod("output").invoke(a);
+    String msg = null;
 
-      columns = (List<Attribute>) scala.collection.JavaConverters.seqAsJavaListConverter(seq)
-                                                                 .asJava();
+    // get field names
+    Method queryExecution;
+    QueryExecution qe;
+    try {
+      queryExecution = df.getClass().getMethod("queryExecution");
+      qe = (QueryExecution) queryExecution.invoke(df);
     } catch (NoSuchMethodException | SecurityException | IllegalAccessException
         | IllegalArgumentException | InvocationTargetException e) {
       throw new InterpreterException(e);
     }
 
-    StringBuilder msg = new StringBuilder();
-    msg.append("%table ");
+    List<Attribute> columns =
+        scala.collection.JavaConverters.asJavaListConverter(
+            qe.analyzed().output()).asJava();
+
     for (Attribute col : columns) {
-      msg.append(col.name() + "\t");
+      if (msg == null) {
+        msg = col.name();
+      } else {
+        msg += "\t" + col.name();
+      }
     }
-    String trim = msg.toString().trim();
-    msg = new StringBuilder(trim);
-    msg.append("\n");
+
+    msg += "\n";
 
     // ArrayType, BinaryType, BooleanType, ByteType, DecimalType, DoubleType, DynamicType,
     // FloatType, FractionalType, IntegerType, IntegralType, LongType, MapType, NativeType,
@@ -241,15 +341,15 @@ public class ZeppelinContext {
 
         for (int i = 0; i < columns.size(); i++) {
           if (!(Boolean) isNullAt.invoke(row, i)) {
-            msg.append(apply.invoke(row, i).toString());
+            msg += apply.invoke(row, i).toString();
           } else {
-            msg.append("null");
+            msg += "null";
           }
           if (i != columns.size() - 1) {
-            msg.append("\t");
+            msg += "\t";
           }
         }
-        msg.append("\n");
+        msg += "\n";
       }
     } catch (NoSuchMethodException | SecurityException | IllegalAccessException
         | IllegalArgumentException | InvocationTargetException e) {
@@ -257,10 +357,10 @@ public class ZeppelinContext {
     }
 
     if (rows.length > maxResult) {
-      msg.append("\n<font color=red>Results are limited by " + maxResult + ".</font>");
+      msg += "\n<font color=red>Results are limited by " + maxResult + ".</font>";
     }
     sc.clearJobGroup();
-    return msg.toString();
+    return "%table " + msg;
   }
 
   /**
@@ -323,7 +423,7 @@ public class ZeppelinContext {
 
   /**
    * Run paragraphs
-   * @param paragraphIdOrIdx list of paragraph id or idx
+   * @param paragraphIdOrIdxs list of paragraph id or idx
    */
   public void run(List<Object> paragraphIdOrIdx, InterpreterContext context) {
     for (Object idOrIdx : paragraphIdOrIdx) {
@@ -371,21 +471,17 @@ public class ZeppelinContext {
     AngularObjectRegistry registry = interpreterContext.getAngularObjectRegistry();
     String noteId = interpreterContext.getNoteId();
     // try get local object
-    AngularObject paragraphAo = registry.get(name, noteId, interpreterContext.getParagraphId());
-    AngularObject noteAo = registry.get(name, noteId, null);
-
-    AngularObject ao = paragraphAo != null ? paragraphAo : noteAo;
-
+    AngularObject ao = registry.get(name, interpreterContext.getNoteId());
     if (ao == null) {
       // then global object
-      ao = registry.get(name, null, null);
+      ao = registry.get(name, null);
     }
     return ao;
   }
 
 
   /**
-   * Get angular object. Look up notebook scope first and then global scope
+   * Get angular object. Look up local registry first and then global registry
    * @param name variable name
    * @return value
    */
@@ -399,13 +495,13 @@ public class ZeppelinContext {
   }
 
   /**
-   * Get angular object. Look up global scope
+   * Get angular object. Look up global registry
    * @param name variable name
    * @return value
    */
   public Object angularGlobal(String name) {
     AngularObjectRegistry registry = interpreterContext.getAngularObjectRegistry();
-    AngularObject ao = registry.get(name, null, null);
+    AngularObject ao = registry.get(name, null);
     if (ao == null) {
       return null;
     } else {
@@ -414,7 +510,7 @@ public class ZeppelinContext {
   }
 
   /**
-   * Create angular variable in notebook scope and bind with front end Angular display system.
+   * Create angular variable in local registry and bind with front end Angular display system.
    * If variable exists, it'll be overwritten.
    * @param name name of the variable
    * @param o value
@@ -424,7 +520,7 @@ public class ZeppelinContext {
   }
 
   /**
-   * Create angular variable in global scope and bind with front end Angular display system.
+   * Create angular variable in global registry and bind with front end Angular display system.
    * If variable exists, it'll be overwritten.
    * @param name name of the variable
    * @param o value
@@ -434,7 +530,7 @@ public class ZeppelinContext {
   }
 
   /**
-   * Create angular variable in local scope and bind with front end Angular display system.
+   * Create angular variable in local registry and bind with front end Angular display system.
    * If variable exists, value will be overwritten and watcher will be added.
    * @param name name of variable
    * @param o value
@@ -445,7 +541,7 @@ public class ZeppelinContext {
   }
 
   /**
-   * Create angular variable in global scope and bind with front end Angular display system.
+   * Create angular variable in global registry and bind with front end Angular display system.
    * If variable exists, value will be overwritten and watcher will be added.
    * @param name name of variable
    * @param o value
@@ -456,7 +552,7 @@ public class ZeppelinContext {
   }
 
   /**
-   * Add watcher into angular variable (local scope)
+   * Add watcher into angular variable (local registry)
    * @param name name of the variable
    * @param watcher watcher
    */
@@ -465,7 +561,7 @@ public class ZeppelinContext {
   }
 
   /**
-   * Add watcher into angular variable (global scope)
+   * Add watcher into angular variable (global registry)
    * @param name name of the variable
    * @param watcher watcher
    */
@@ -549,7 +645,7 @@ public class ZeppelinContext {
   }
 
   /**
-   * Create angular variable in notebook scope and bind with front end Angular display system.
+   * Create angular variable in local registry and bind with front end Angular display system.
    * If variable exists, it'll be overwritten.
    * @param name name of the variable
    * @param o value
@@ -557,16 +653,15 @@ public class ZeppelinContext {
   private void angularBind(String name, Object o, String noteId) {
     AngularObjectRegistry registry = interpreterContext.getAngularObjectRegistry();
 
-    if (registry.get(name, noteId, null) == null) {
-      registry.add(name, o, noteId, null);
+    if (registry.get(name, noteId) == null) {
+      registry.add(name, o, noteId);
     } else {
-      registry.get(name, noteId, null).set(o);
+      registry.get(name, noteId).set(o);
     }
   }
 
   /**
-   * Create angular variable in notebook scope and bind with front end Angular display
-   * system.
+   * Create angular variable in local registry and bind with front end Angular display system.
    * If variable exists, value will be overwritten and watcher will be added.
    * @param name name of variable
    * @param o value
@@ -575,10 +670,10 @@ public class ZeppelinContext {
   private void angularBind(String name, Object o, String noteId, AngularObjectWatcher watcher) {
     AngularObjectRegistry registry = interpreterContext.getAngularObjectRegistry();
 
-    if (registry.get(name, noteId, null) == null) {
-      registry.add(name, o, noteId, null);
+    if (registry.get(name, noteId) == null) {
+      registry.add(name, o, noteId);
     } else {
-      registry.get(name, noteId, null).set(o);
+      registry.get(name, noteId).set(o);
     }
     angularWatch(name, watcher);
   }
@@ -591,8 +686,8 @@ public class ZeppelinContext {
   private void angularWatch(String name, String noteId, AngularObjectWatcher watcher) {
     AngularObjectRegistry registry = interpreterContext.getAngularObjectRegistry();
 
-    if (registry.get(name, noteId, null) != null) {
-      registry.get(name, noteId, null).addWatcher(watcher);
+    if (registry.get(name, noteId) != null) {
+      registry.get(name, noteId).addWatcher(watcher);
     }
   }
 
@@ -630,8 +725,8 @@ public class ZeppelinContext {
    */
   private void angularUnwatch(String name, String noteId, AngularObjectWatcher watcher) {
     AngularObjectRegistry registry = interpreterContext.getAngularObjectRegistry();
-    if (registry.get(name, noteId, null) != null) {
-      registry.get(name, noteId, null).removeWatcher(watcher);
+    if (registry.get(name, noteId) != null) {
+      registry.get(name, noteId).removeWatcher(watcher);
     }
   }
 
@@ -641,8 +736,8 @@ public class ZeppelinContext {
    */
   private void angularUnwatch(String name, String noteId) {
     AngularObjectRegistry registry = interpreterContext.getAngularObjectRegistry();
-    if (registry.get(name, noteId, null) != null) {
-      registry.get(name, noteId, null).clearAllWatchers();
+    if (registry.get(name, noteId) != null) {
+      registry.get(name, noteId).clearAllWatchers();
     }
   }
 
@@ -652,62 +747,6 @@ public class ZeppelinContext {
    */
   private void angularUnbind(String name, String noteId) {
     AngularObjectRegistry registry = interpreterContext.getAngularObjectRegistry();
-    registry.remove(name, noteId, null);
+    registry.remove(name, noteId);
   }
-
-
-  /**
-   * Add object into resource pool
-   * @param name
-   * @param value
-   */
-  public void put(String name, Object value) {
-    ResourcePool resourcePool = interpreterContext.getResourcePool();
-    resourcePool.put(name, value);
-  }
-
-  /**
-   * Get object from resource pool
-   * Search local process first and then the other processes
-   * @param name
-   * @return null if resource not found
-   */
-  public Object get(String name) {
-    ResourcePool resourcePool = interpreterContext.getResourcePool();
-    Resource resource = resourcePool.get(name);
-    if (resource != null) {
-      return resource.get();
-    } else {
-      return null;
-    }
-  }
-
-  /**
-   * Remove object from resourcePool
-   * @param name
-   */
-  public void remove(String name) {
-    ResourcePool resourcePool = interpreterContext.getResourcePool();
-    resourcePool.remove(name);
-  }
-
-  /**
-   * Check if resource pool has the object
-   * @param name
-   * @return
-   */
-  public boolean containsKey(String name) {
-    ResourcePool resourcePool = interpreterContext.getResourcePool();
-    Resource resource = resourcePool.get(name);
-    return resource != null;
-  }
-
-  /**
-   * Get all resources
-   */
-  public ResourceSet getAll() {
-    ResourcePool resourcePool = interpreterContext.getResourcePool();
-    return resourcePool.getAll();
-  }
-
 }

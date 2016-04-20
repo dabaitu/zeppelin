@@ -105,9 +105,4 @@ public class InterpreterResultTest {
 					"123\n", result.message());
 	  }
 
-	  @Test
-	  public void testToString() {
-			assertEquals("%html hello", new InterpreterResult(InterpreterResult.Code.SUCCESS, "%html hello").toString());
-		}
-
 }

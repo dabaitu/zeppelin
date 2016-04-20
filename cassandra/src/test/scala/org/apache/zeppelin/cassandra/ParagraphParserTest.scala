@@ -23,8 +23,6 @@ import org.scalatest.{BeforeAndAfterEach, FlatSpec, Matchers}
 import org.apache.zeppelin.cassandra.ParagraphParser._
 import org.apache.zeppelin.cassandra.TextBlockHierarchy._
 
-import scala.Option
-
 class ParagraphParserTest extends FlatSpec
   with BeforeAndAfterEach
   with Matchers
@@ -59,46 +57,34 @@ class ParagraphParserTest extends FlatSpec
 
     val parsed = parser.parse(parser.queries,query)
 
-    parsed should matchPattern {
-      case parser.Success(List(
-        SimpleStm("SELECT * FROM albums LIMIT 10;"),
-        BatchStm(BatchStatement.Type.UNLOGGED,
-          List(
-            SimpleStm("INSERT INTO users(id) VALUES(10);"),
-            BoundStm("test","'a',12.34")
-          )
-        ),
-        SimpleStm("SELECT * FROM users LIMIT 10;"),
-        BatchStm(BatchStatement.Type.LOGGED,
-          List(
-            SimpleStm("Insert INTO users(id) VALUES(11);"),
-            SimpleStm("INSERT INTO users(id) VALUES(12);")
-          )
-        ),
-        BoundStm("toto","'a',12.34"),
-        DescribeTableCmd(Some("zeppelin"),"users"),
-        DescribeKeyspaceCmd("zeppelin")
-      ),_) =>
-    }
+    parsed.get should be(List(
+      SimpleStm("SELECT * FROM albums LIMIT 10;"),
+      BatchStm(BatchStatement.Type.UNLOGGED,
+        List(
+          SimpleStm("INSERT INTO users(id) VALUES(10);"),
+          BoundStm("test","'a',12.34")
+        )
+      ),
+      SimpleStm("SELECT * FROM users LIMIT 10;"),
+      BatchStm(BatchStatement.Type.LOGGED,
+        List(
+          SimpleStm("Insert INTO users(id) VALUES(11);"),
+          SimpleStm("INSERT INTO users(id) VALUES(12);")
+        )
+      ),
+      BoundStm("toto","'a',12.34"),
+      DescribeTableCmd(Option("zeppelin"),"users"),
+      DescribeKeyspaceCmd("zeppelin")
+    ))
   }
 
-  "Parser" should "parse hash single-line comment" in {
+  "Parser" should "parse single-line comment" in {
     val query :CharSequence="""#This is a comment""".stripMargin
 
     val parsed = parser.parseAll[Comment](parser.singleLineComment, query)
-    parsed should matchPattern {
-      case parser.Success(Comment("This is a comment"), _) =>
-    }
+    parsed.get should be(Comment("This is a comment"))
   }
 
-  "Parser" should "parse double slashes single-line comment" in {
-    val query :CharSequence="""//This is another comment""".stripMargin
-
-    val parsed = parser.parseAll[Comment](parser.singleLineComment, query)
-    parsed should matchPattern {
-      case parser.Success(Comment("This is another comment"), _) =>
-    }
-  }
 
   "Parser" should "parse multi-line comment" in {
     val query:String =
@@ -110,17 +96,13 @@ class ParagraphParserTest extends FlatSpec
       """.stripMargin
 
     val parsed = parser.parseAll(parser.multiLineComment, query)
-    parsed should matchPattern {
-      case parser.Success(Comment("This is a comment\nline1\nline2\nline3\n"), _) =>
-    }
+    parsed.get should be(Comment("This is a comment\nline1\nline2\nline3\n"))
   }
 
   "Parser" should "parse consistency level" in {
     val query:String =""" @consistency=ONE""".stripMargin
     val parsed = parser.parseAll(parser.consistency, query)
-    parsed should matchPattern {
-      case parser.Success(Consistency(ConsistencyLevel.ONE), _) =>
-    }
+    parsed.get should be(Consistency(ConsistencyLevel.ONE))
   }
 
   "Parser" should "fails parsing unknown consistency level" in {
@@ -134,9 +116,7 @@ class ParagraphParserTest extends FlatSpec
   "Parser" should "parse serial consistency level" in {
     val query:String =""" @serialConsistency=LOCAL_SERIAL""".stripMargin
     val parsed = parser.parseAll(parser.serialConsistency, query)
-    parsed should matchPattern {
-      case parser.Success(SerialConsistency(ConsistencyLevel.LOCAL_SERIAL), _) =>
-    }
+    parsed.get should be(SerialConsistency(ConsistencyLevel.LOCAL_SERIAL))
   }
 
   "Parser" should "fails parsing unknown serial consistency level" in {
@@ -150,8 +130,7 @@ class ParagraphParserTest extends FlatSpec
   "Parser" should "parse timestamp" in {
     val query:String =""" @timestamp=111""".stripMargin
     val parsed = parser.parseAll(parser.timestamp, query)
-    parsed should matchPattern {
-      case parser.Success(Timestamp(111L), _) => }
+    parsed.get should be(Timestamp(111L))
   }
 
   "Parser" should "fails parsing invalid timestamp" in {
@@ -165,7 +144,7 @@ class ParagraphParserTest extends FlatSpec
   "Parser" should "parse retry policy" in {
     val query:String ="@retryPolicy="+CassandraInterpreter.DOWNGRADING_CONSISTENCY_RETRY
     val parsed = parser.parseAll(parser.retryPolicy, query)
-    parsed should matchPattern {case parser.Success(DowngradingRetryPolicy, _) => }
+    parsed.get should be(DowngradingRetryPolicy)
   }
 
   "Parser" should "fails parsing invalid retry policy" in {
@@ -179,7 +158,7 @@ class ParagraphParserTest extends FlatSpec
   "Parser" should "parse fetch size" in {
     val query:String ="@fetchSize=100"
     val parsed = parser.parseAll(parser.fetchSize, query)
-    parsed should matchPattern { case parser.Success(FetchSize(100), _) =>}
+    parsed.get should be(FetchSize(100))
   }
 
   "Parser" should "fails parsing invalid fetch size" in {
@@ -198,7 +177,7 @@ class ParagraphParserTest extends FlatSpec
     val parsed = parser.parseAll(parser.genericStatement, query)
 
     //Then
-    parsed should matchPattern { case parser.Success(SimpleStm("sElecT * FROM users LIMIT ? ;"), _) =>}
+    parsed.get should be(SimpleStm("sElecT * FROM users LIMIT ? ;"))
   }
 
   "Parser" should "parse prepare" in {
@@ -209,7 +188,7 @@ class ParagraphParserTest extends FlatSpec
     val parsed = parser.parseAll(parser.prepare, query)
 
     //Then
-    parsed should matchPattern { case parser.Success(PrepareStm("select_users","SELECT * FROM users LIMIT ?"), _) => }
+    parsed.get should be(PrepareStm("select_users","SELECT * FROM users LIMIT ?"))
   }
 
   "Parser" should "fails parsing invalid prepared statement" in {
@@ -228,7 +207,7 @@ class ParagraphParserTest extends FlatSpec
     val parsed = parser.parseAll(parser.removePrepare, query)
 
     //Then
-    parsed should matchPattern { case parser.Success(RemovePrepareStm("select_users"), _) => }
+    parsed.get should be(RemovePrepareStm("select_users"))
   }
 
   "Parser" should "fails parsing invalid remove prepared statement" in {
@@ -247,7 +226,7 @@ class ParagraphParserTest extends FlatSpec
     val parsed = parser.parseAll(parser.bind, query)
 
     //Then
-    parsed should matchPattern { case parser.Success(BoundStm("select_users","10,'toto'"), _) => }
+    parsed.get should be(BoundStm("select_users","10,'toto'"))
   }
 
   "Parser" should "fails parsing invalid bind statement" in {
@@ -272,17 +251,17 @@ class ParagraphParserTest extends FlatSpec
     val parsed = parser.parseAll(parser.batch, query)
 
     //Then
-    parsed should matchPattern {
-      case parser.Success(BatchStm(
-      BatchStatement.Type.LOGGED,
-      List(
-        SimpleStm("Insert INTO users(id) VALUES(10);"),
-        BoundStm("select_users", "10,'toto'"),
-        SimpleStm("update users SET name ='John DOE' WHERE id=10;"),
-        SimpleStm("dElEtE users WHERE id=11;")
+    parsed.get should be(
+      BatchStm(
+        BatchStatement.Type.LOGGED,
+        List[QueryStatement](
+          SimpleStm("Insert INTO users(id) VALUES(10);"),
+          BoundStm("select_users", "10,'toto'"),
+          SimpleStm("update users SET name ='John DOE' WHERE id=10;"),
+          SimpleStm("dElEtE users WHERE id=11;")
         )
-      ), _) =>
-    }
+      )
+    )
   }
 
   "Parser" should "fails parsing invalid batch type" in {
@@ -301,12 +280,10 @@ class ParagraphParserTest extends FlatSpec
 
       val parsed = parser.parseAll(parser.queries, query)
 
-    parsed should matchPattern {
-      case parser.Success(List(
-        SerialConsistency(ConsistencyLevel.SERIAL),
-        SimpleStm("SELECT * FROM zeppelin.artists LIMIT 1;")
-      ), _) =>
-    }
+      parsed.get should be (List(
+          SerialConsistency(ConsistencyLevel.SERIAL),
+          SimpleStm("SELECT * FROM zeppelin.artists LIMIT 1;")
+      ))
   }
 
   "Parser" should "parse multi-line single statement" in {
@@ -315,15 +292,13 @@ class ParagraphParserTest extends FlatSpec
       "    title text PRIMARY KEY,\n" +
       "    artist text,\n" +
       "    year int\n" +
-      ");\n"
+      ");\n";
 
     val parsed = parser.parseAll(parser.queries, query)
 
-    parsed should matchPattern {
-      case parser.Success(List(
-        SimpleStm("CREATE TABLE IF NOT EXISTS zeppelin.albums(\n    title text PRIMARY KEY,\n    artist text,\n    year int\n);")
-      ), _) =>
-    }
+    parsed.get should be (List(
+      SimpleStm("CREATE TABLE IF NOT EXISTS zeppelin.albums(\n    title text PRIMARY KEY,\n    artist text,\n    year int\n);")
+    ))
   }
 
   "Parser" should "parse multi-line statements" in {
@@ -341,12 +316,11 @@ class ParagraphParserTest extends FlatSpec
       "APPLY BATCH;\n"+
       "@timestamp=10\n" +
       "@retryPolicy=DOWNGRADING_CONSISTENCY\n" +
-      "SELECT * FROM zeppelin.albums;"
+      "SELECT * FROM zeppelin.albums;";
 
     val parsed = parser.parseAll(parser.queries, query)
 
-    parsed should matchPattern {
-      case parser.Success(List(
+    parsed.get should be (List(
       SimpleStm("CREATE TABLE IF NOT EXISTS zeppelin.albums(\n    title text PRIMARY KEY,\n    artist text,\n    year int\n);"),
       Consistency(ConsistencyLevel.THREE),
       SerialConsistency(ConsistencyLevel.SERIAL),
@@ -360,8 +334,7 @@ class ParagraphParserTest extends FlatSpec
       Timestamp(10L),
       DowngradingRetryPolicy,
       SimpleStm("SELECT * FROM zeppelin.albums;")
-      ), _) =>
-    }
+    ))
   }
 
   "Parser" should "parse mixed single-line and multi-line statements" in {
@@ -376,12 +349,11 @@ class ParagraphParserTest extends FlatSpec
       "   INSERT INTO zeppelin.albums(title,artist,year) VALUES('The Way You Are','Tears for Fears',1983);"+
       "   INSERT INTO zeppelin.albums(title,artist,year) VALUES('Primitive','Soulfly',2003);\n"+
       "APPLY BATCH;"+
-      "SELECT * FROM zeppelin.albums;"
+      "SELECT * FROM zeppelin.albums;";
 
     val parsed = parser.parseAll(parser.queries, query)
 
-    parsed should matchPattern {
-      case parser.Success(List(
+    parsed.get should be (List(
       SimpleStm("CREATE TABLE IF NOT EXISTS zeppelin.albums(\n    title text PRIMARY KEY,\n    artist text,\n    year int\n);"),
       BatchStm(BatchStatement.Type.LOGGED,
         List(
@@ -391,8 +363,7 @@ class ParagraphParserTest extends FlatSpec
         )
       ),
       SimpleStm("SELECT * FROM zeppelin.albums;")
-      ), _) =>
-    }
+    ))
   }
 
   "Parser" should "parse a block queries with comments" in {
@@ -424,8 +395,7 @@ class ParagraphParserTest extends FlatSpec
 
     val parsed = parser.parseAll(parser.queries, query)
 
-    parsed should matchPattern {
-      case parser.Success(List(
+    parsed.get should be (List(
         Comment("\n         This example show how to force a\n         timestamp on the query\n        "),
         Comment("Timestamp in the past"),
         Timestamp(10L),
@@ -439,9 +409,8 @@ class ParagraphParserTest extends FlatSpec
         SimpleStm("INSERT INTO spark_demo.ts(key,value) VALUES(1,'val2');"),
         Comment("Check the result"),
         SimpleStm("SELECT * FROM spark_demo.ts WHERE key=1;")
-        ), _
-      ) =>
-    }
+      )
+    )
   }
 
   "Parser" should "remove prepared statement" in {
@@ -457,14 +426,13 @@ class ParagraphParserTest extends FlatSpec
 
     val parsed = parser.parseAll(parser.queries, queries)
 
-    parsed should matchPattern {
-      case parser.Success(List(
+    parsed.get should be(List(
       Comment("Removing an unknown statement should has no side effect"),
       RemovePrepareStm("unknown_statement"),
       RemovePrepareStm("select_artist_by_name"),
       Comment("This should fail because the 'select_artist_by_name' has been removed"),
       BoundStm("select_artist_by_name","'The Beatles'")
-    ), _) => }
+    ))
   }
 
   "Parser" should "parse only parameter" in {
@@ -473,9 +441,7 @@ class ParagraphParserTest extends FlatSpec
 
     val parsed = parser.parseAll(parser.queries, queries)
 
-    parsed should matchPattern {
-      case parser.Success(List(FetchSize(1000)), _) =>
-    }
+    parsed.get should be(List(FetchSize(1000)))
   }
 
 
@@ -484,9 +450,7 @@ class ParagraphParserTest extends FlatSpec
 
     val parsed = parser.parseAll(parser.queries, queries)
 
-    parsed should matchPattern {
-      case parser.Success(List(DescribeClusterCmd("DESCRIBE CLUSTER;")), _) =>
-    }
+    parsed.get(0) shouldBe a [DescribeClusterCmd]
   }
 
   "Parser" should "fail parsing describe cluster" in {
@@ -498,33 +462,12 @@ class ParagraphParserTest extends FlatSpec
     ex.getMessage should be(s"Invalid syntax for DESCRIBE CLUSTER. It should comply to the pattern: ${DESCRIBE_CLUSTER_PATTERN.toString}")
   }
 
-  "Parser" should "parse describe keyspace" in {
-    val queries ="Describe KeYsPaCe toto;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeKeyspaceCmd("toto")), _) =>
-    }
-  }
-
-  "Parser" should "fail parsing describe keyspace" in {
-    val queries ="Describe KeYsPaCe toto"
-
-    val ex = intercept[InterpreterException] {
-      parser.parseAll(parser.queries, queries)
-    }
-    ex.getMessage should be(s"Invalid syntax for DESCRIBE KEYSPACE. It should comply to the pattern: ${DESCRIBE_KEYSPACE_PATTERN.toString}")
-  }
-
   "Parser" should "parse describe keyspaces" in {
     val queries ="Describe KeYsPaCeS;"
 
     val parsed = parser.parseAll(parser.queries, queries)
 
-    parsed should matchPattern {
-      case parser.Success(List(DescribeKeyspacesCmd("DESCRIBE KEYSPACES;")), _) =>
-    }
+    parsed.get(0) shouldBe a [DescribeKeyspacesCmd]
   }
 
   "Parser" should "fail parsing describe keyspaces" in {
@@ -534,6 +477,40 @@ class ParagraphParserTest extends FlatSpec
       parser.parseAll(parser.queries, queries)
     }
     ex.getMessage should be(s"Invalid syntax for DESCRIBE KEYSPACES. It should comply to the pattern: ${DESCRIBE_KEYSPACES_PATTERN.toString}")
+  }
+
+  "Parser" should "parse describe tables" in {
+    val queries ="Describe TaBlEs;"
+
+    val parsed = parser.parseAll(parser.queries, queries)
+
+    parsed.get(0) shouldBe a [DescribeTablesCmd]
+  }
+
+  "Parser" should "fail parsing describe tables" in {
+    val queries ="Describe TaBlEs"
+
+    val ex = intercept[InterpreterException] {
+      parser.parseAll(parser.queries, queries)
+    }
+    ex.getMessage should be(s"Invalid syntax for DESCRIBE TABLES. It should comply to the pattern: ${DESCRIBE_TABLES_PATTERN.toString}")
+  }
+
+  "Parser" should "parse describe keyspace" in {
+    val queries ="Describe KeYsPaCe toto;"
+
+    val parsed = parser.parseAll(parser.queries, queries)
+
+    parsed.get should be(List(DescribeKeyspaceCmd("toto")))
+  }
+
+  "Parser" should "fail parsing describe keyspace" in {
+    val queries ="Describe KeYsPaCe toto"
+
+    val ex = intercept[InterpreterException] {
+      parser.parseAll(parser.queries, queries)
+    }
+    ex.getMessage should be(s"Invalid syntax for DESCRIBE KEYSPACE. It should comply to the pattern: ${DESCRIBE_KEYSPACE_PATTERN.toString}")
   }
 
   "Parser" should "parse describe table" in {
@@ -562,33 +539,12 @@ class ParagraphParserTest extends FlatSpec
       s"${DESCRIBE_TABLE_WITH_KEYSPACE_PATTERN.toString} or ${DESCRIBE_TABLE_PATTERN.toString}")
   }
 
-  "Parser" should "parse describe tables" in {
-    val queries ="Describe TaBlEs;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeTablesCmd("DESCRIBE TABLES;")), _) =>
-    }
-  }
-
-  "Parser" should "fail parsing describe tables" in {
-    val queries ="Describe TaBlEs"
-
-    val ex = intercept[InterpreterException] {
-      parser.parseAll(parser.queries, queries)
-    }
-    ex.getMessage should be(s"Invalid syntax for DESCRIBE TABLES. It should comply to the pattern: ${DESCRIBE_TABLES_PATTERN.toString}")
-  }
-
   "Parser" should "parse describe type" in {
     val queries ="Describe Type toto;"
 
     val parsed = parser.parseAll(parser.queries, queries)
 
-    parsed should matchPattern {
-      case parser.Success(List(DescribeTypeCmd(None, "toto")), _) =>
-    }
+    parsed.get should be(List(DescribeUDTCmd(None,"toto")))
   }
 
   "Parser" should "parse describe type with keyspace" in {
@@ -596,9 +552,7 @@ class ParagraphParserTest extends FlatSpec
 
     val parsed = parser.parseAll(parser.queries, queries)
 
-    parsed should matchPattern {
-      case parser.Success(List(DescribeTypeCmd(Some("ks"), "toto")), _) =>
-    }
+    parsed.get should be(List(DescribeUDTCmd(Some("ks"),"toto")))
   }
 
   "Parser" should "fail parsing describe type" in {
@@ -611,186 +565,12 @@ class ParagraphParserTest extends FlatSpec
       s"${DESCRIBE_TYPE_WITH_KEYSPACE_PATTERN.toString} or ${DESCRIBE_TYPE_PATTERN.toString}")
   }
 
-  "Parser" should "parse describe types" in {
-    val queries ="Describe types;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeTypesCmd("DESCRIBE TYPES;")), _) =>
-    }
-  }
-
-  "Parser" should "fail parsing describe types" in {
-    val queries ="Describe types"
-
-    val ex = intercept[InterpreterException] {
-      parser.parseAll(parser.queries, queries)
-    }
-    ex.getMessage should be(s"Invalid syntax for DESCRIBE TYPES. It should comply to the pattern: ${DESCRIBE_TYPES_PATTERN.toString}")
-  }
-
-  "Parser" should "parse describe function" in {
-    val queries ="Describe function toto;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeFunctionCmd(None,"toto")),_) =>
-    }
-  }
-
-
-
-  "Parser" should "parse describe function with keyspace" in {
-    val queries ="Describe function ks.toto;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeFunctionCmd(Some("ks"), "toto")), _) =>
-    }
-  }
-
-  "Parser" should "fail parsing describe function" in {
-    val queries ="Describe function toto"
-
-    val ex = intercept[InterpreterException] {
-      parser.parseAll(parser.queries, queries)
-    }
-    ex.getMessage should be(s"Invalid syntax for DESCRIBE FUNCTION. It should comply to the patterns: " +
-      s"${DESCRIBE_FUNCTION_WITH_KEYSPACE_PATTERN.toString} or ${DESCRIBE_FUNCTION_PATTERN.toString}")
-  }
-
-  "Parser" should "parse describe functions" in {
-    val queries ="Describe functions;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeFunctionsCmd("DESCRIBE FUNCTIONS;")), _) =>
-    }
-  }
-
-  "Parser" should "fail parsing describe functions" in {
-    val queries ="Describe functions toto"
-
-    val ex = intercept[InterpreterException] {
-      parser.parseAll(parser.queries, queries)
-    }
-    ex.getMessage should be(s"Invalid syntax for DESCRIBE FUNCTIONS. It should comply to the pattern: " +
-      s"${DESCRIBE_FUNCTIONS_PATTERN.toString}")
-  }
-
-
-  "Parser" should "parse describe aggregate" in {
-    val queries ="Describe aggregate toto;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeAggregateCmd(None, "toto")), _) =>
-    }
-  }
-
-  "Parser" should "parse describe aggregate with keyspace" in {
-    val queries ="Describe aggregate ks.toto;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeAggregateCmd(Some("ks"),"toto")), _) =>
-    }
-  }
-
-  "Parser" should "fail parsing describe aggregate" in {
-    val queries ="Describe aggregate toto"
-
-    val ex = intercept[InterpreterException] {
-      parser.parseAll(parser.queries, queries)
-    }
-    ex.getMessage should be(s"Invalid syntax for DESCRIBE AGGREGATE. It should comply to the patterns: " +
-      s"${DESCRIBE_AGGREGATE_WITH_KEYSPACE_PATTERN.toString} or ${DESCRIBE_AGGREGATE_PATTERN.toString}")
-  }
-
-  "Parser" should "parse describe aggregates" in {
-    val queries ="Describe aggregates;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeAggregatesCmd("DESCRIBE AGGREGATES;")), _) =>
-    }
-  }
-
-  "Parser" should "fail parsing describe aggregates" in {
-    val queries ="Describe aggregates toto"
-
-    val ex = intercept[InterpreterException] {
-      parser.parseAll(parser.queries, queries)
-    }
-    ex.getMessage should be(s"Invalid syntax for DESCRIBE AGGREGATES. It should comply to the pattern: " +
-      s"${DESCRIBE_AGGREGATES_PATTERN.toString}")
-  }
-
-  "Parser" should "parse describe materialized view" in {
-    val queries ="Describe materialized view toto;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeMaterializedViewCmd(None, "toto")), _) =>
-    }
-  }
-
-  "Parser" should "parse describe materialized view with keyspace" in {
-    val queries ="Describe materialized view ks.toto;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeMaterializedViewCmd(Some("ks"), "toto")), _) =>
-    }
-  }
-
-  "Parser" should "fail parsing describe materialized view" in {
-    val queries ="Describe materialized view toto"
-
-    val ex = intercept[InterpreterException] {
-      parser.parseAll(parser.queries, queries)
-    }
-    ex.getMessage should be(s"Invalid syntax for DESCRIBE MATERIALIZED VIEW. It should comply to the patterns: " +
-      s"${DESCRIBE_MATERIALIZED_VIEW_WITH_KEYSPACE_PATTERN.toString} or ${DESCRIBE_MATERIALIZED_VIEW_PATTERN.toString}")
-  }
-
-  "Parser" should "parse describe materialized views" in {
-    val queries ="Describe materialized views;"
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(DescribeMaterializedViewsCmd("DESCRIBE MATERIALIZED VIEWS;")), _) =>
-    }
-  }
-
-  "Parser" should "fail parsing describe materialized views" in {
-    val queries ="Describe materialized views toto"
-
-    val ex = intercept[InterpreterException] {
-      parser.parseAll(parser.queries, queries)
-    }
-    ex.getMessage should be(s"Invalid syntax for DESCRIBE MATERIALIZED VIEWS. It should comply to the pattern: " +
-      s"${DESCRIBE_MATERIALIZED_VIEWS_PATTERN.toString}")
-  }
-
   "Parser" should "parse help" in {
     val queries ="hElp;"
 
     val parsed = parser.parseAll(parser.queries, queries)
 
-    parsed should matchPattern {
-      case parser.Success(List(HelpCmd("HELP;")), _) =>
-    }
+    parsed.get(0) shouldBe a [HelpCmd]
   }
 
   "Parser" should "fail parsing help" in {
@@ -801,147 +581,5 @@ class ParagraphParserTest extends FlatSpec
     }
     ex.getMessage should be(s"Invalid syntax for HELP. It should comply to the patterns: " +
       s"${HELP_PATTERN.toString}")
-  }
-
-  "Parser" should "parse CREATE FUNCTION" in {
-    val query = "CREATE FUNCTION keyspace.udf xxx AS 'return true;';"
-
-    val parsed = parser.parseAll(parser.queries, query)
-
-    parsed should matchPattern {
-      case parser.Success(List(SimpleStm(query)), _) =>
-    }
-
-  }
-
-  "Parser" should "parse CREATE OR REPLACE FUNCTION" in {
-    val query = "CREATE or Replace FUNCTION keyspace.udf xxx AS 'return true;';"
-
-    val parsed = parser.parseAll(parser.queries, query)
-
-    parsed should matchPattern {
-      case parser.Success(List(SimpleStm(query)), _) =>
-    }
-
-  }
-
-  "Parser" should "parse CREATE FUNCTION IF NOT Exists" in {
-    val query = "CREATE FUNCTION IF NOT EXISTS keyspace.udf xxx AS 'return true;';"
-
-    val parsed = parser.parseAll(parser.queries, query)
-
-    parsed should matchPattern {
-      case parser.Success(List(SimpleStm(query)), _) =>
-    }
-  }
-
-  "Parser" should "parse CREATE FUNCTION multiline with simple quote" in {
-    val query =
-      """CREATE FUNCTION IF NOT EXISTS keyspace.udf(input text) xxx
-        | CALLED ON NULL INPUT
-        | RETURN text
-        | LANGUAGE java
-        | AS '
-        |  return input.toLowerCase("abc");
-        | ';""".stripMargin
-
-    val parsed = parser.parseAll(parser.queries, query)
-
-    parsed should matchPattern {
-      case parser.Success(List(SimpleStm(query)), _) =>
-    }
-  }
-
-  "Parser" should "parse CREATE FUNCTION multiline with double dollar" in {
-    val query =
-      """CREATE FUNCTION IF NOT EXISTS keyspace.udf(input text) xxx
-        | CALLED ON NULL INPUT
-        | RETURN text
-        | LANGUAGE java
-        | AS $$
-        |  return input.toLowerCase("abc");
-        | $$;""".stripMargin
-
-    val parsed = parser.parseAll(parser.queries, query)
-
-    parsed should matchPattern {
-      case parser.Success(List(SimpleStm(query)), _) =>
-    }
-  }
-
-  "Parser" should "parse CREATE FUNCTION multiline with SELECT" in {
-
-    val udf =
-      """CREATE FUNCTION IF NOT EXISTS keyspace.udf(input text) xxx
-        | CALLED ON NULL INPUT
-        | RETURN text
-        | LANGUAGE java
-        | AS '
-        |  return input.toLowerCase("abc");
-        | ';""".stripMargin
-
-    val select = "SELECT udf(val) from table WHERe id=1;"
-    val queries =
-      s"""$udf
-        |$select
-      """.stripMargin
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed should matchPattern {
-      case parser.Success(List(SimpleStm(udf), SimpleStm(select)), _) =>
-    }
-  }
-
-  "Parser" should "parse CREATE multiple FUNCTIONS" in {
-
-    val udf1 =
-      """CREATE FUNCTION IF NOT EXISTS keyspace.udf(input text) xxx
-        | CALLED ON NULL INPUT
-        | RETURN text
-        | LANGUAGE java
-        | AS '
-        |  return input.toLowerCase("abc");
-        | ';""".stripMargin
-
-    val select = "SELECT * FROM keyspace.table;"
-
-    val udf2 = """CREATE FUNCTION IF NOT EXISTS keyspace.maxOf(val1 int, val2 int)
-      | CALLED ON NULL INPUT
-      | RETURN text
-      | LANGUAGE java
-      | AS '
-      |  return Math.max(val1,val2);
-      | ';""".stripMargin
-
-    val queries =
-      s"""$udf1
-         |
-         |$select
-         |
-         |$udf2
-      """.stripMargin
-
-    val parsed = parser.parseAll(parser.queries, queries)
-
-    parsed.get.size should be(3)
-
-    parsed should matchPattern {
-      case parser.Success(List(SimpleStm(udf1), SimpleStm(select), SimpleStm(udf2)), _) =>
-    }
-  }
-
-  "Parser" should "parse CREATE Materialized View" in {
-    val query =
-      """CREATE MATERIALIZED VIEW xxx
-        | AS SELECT * FROM myTable
-        | WHERE partition IS NOT NULL
-        | PRIMARY KEY(col, partition);""".stripMargin
-
-    val parsed = parser.parseAll(parser.queries, query)
-
-    parsed should matchPattern {
-      case parser.Success(List(SimpleStm(query)), _) =>
-    }
   }
 }

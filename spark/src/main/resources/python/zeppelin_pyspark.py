@@ -36,13 +36,13 @@ class Logger(object):
     self.out = ""
 
   def write(self, message):
-    intp.appendOutput(message)
+    self.out = self.out + message
+
+  def get(self):
+    return self.out
 
   def reset(self):
     self.out = ""
-
-  def flush(self):
-    pass
 
 
 class PyZeppelinContext(dict):
@@ -87,16 +87,6 @@ class PyZeppelinContext(dict):
     iterables = gateway.jvm.scala.collection.JavaConversions.collectionAsScalaIterable(tuples)
     return self.z.select(name, defaultValue, iterables)
 
-  def checkbox(self, name, options, defaultChecked = None):
-    if defaultChecked is None:
-      defaultChecked = map(lambda items: items[0], options)
-    optionTuples = map(lambda items: self.__tupleToScalaTuple2(items), options)
-    optionIterables = gateway.jvm.scala.collection.JavaConversions.collectionAsScalaIterable(optionTuples)
-    defaultCheckedIterables = gateway.jvm.scala.collection.JavaConversions.collectionAsScalaIterable(defaultChecked)
-
-    checkedIterables = self.z.checkbox(name, defaultCheckedIterables, optionIterables)
-    return gateway.jvm.scala.collection.JavaConversions.asJavaCollection(checkedIterables)
-
   def __tupleToScalaTuple2(self, tuple):
     if (len(tuple) == 2):
       return gateway.jvm.scala.Tuple2(tuple[0], tuple[1])
@@ -121,7 +111,7 @@ class PySparkCompletion:
   def getGlobalCompletion(self):
     objectDefList = []
     try:
-      for completionItem in list(globals().keys()):
+      for completionItem in list(globals().iterkeys()):
         objectDefList.append(completionItem)
     except:
       return None
@@ -129,20 +119,18 @@ class PySparkCompletion:
       return objectDefList
 
   def getMethodCompletion(self, text_value):
-    execResult = locals()
-    if text_value == None:
-      return None
+    objectDefList = []
     completion_target = text_value
     try:
       if len(completion_target) <= 0:
         return None
       if text_value[-1] == ".":
         completion_target = text_value[:-1]
-      exec("{} = dir({})".format("objectDefList", completion_target), globals(), execResult)
+      exec("%s = %s(%s)" % ("objectDefList", "dir", completion_target))
     except:
       return None
     else:
-      return list(execResult['objectDefList'])
+      return objectDefList
 
 
   def getCompletion(self, text_value):
@@ -159,9 +147,9 @@ class PySparkCompletion:
         for completionItem in list(objectCompletionList):
           completionList.add(completionItem)
     if len(completionList) <= 0:
-      print("")
+      print ""
     else:
-      print(json.dumps(list(filter(lambda x : not re.match("^__.*", x), list(completionList)))))
+      print json.dumps(filter(lambda x : not re.match("^__.*", x), list(completionList)))
 
 
 output = Logger()
@@ -234,7 +222,7 @@ while True :
       sc.setJobGroup(jobGroup, "Zeppelin")
       eval(compiledCode)
 
-    intp.setStatementsFinished("", False)
+    intp.setStatementsFinished(output.get(), False)
   except Py4JJavaError:
     excInnerError = traceback.format_exc() # format_tb() does not return the inner exception
     innerErrorStart = excInnerError.find("Py4JJavaError:")

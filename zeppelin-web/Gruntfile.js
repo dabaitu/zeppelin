@@ -434,7 +434,22 @@ module.exports = function (grunt) {
   ]);
 
   grunt.registerTask('build', [
-    'newer:jshint',
+    'test',
+    'clean:dist',
+    'wiredep',
+    'useminPrepare',
+    'concurrent:dist',
+    'postcss',
+    'concat',
+    'ngAnnotate',
+    'copy:dist',
+    'cssmin',
+    'uglify',
+    'usemin',
+    'htmlmin'
+  ]);
+
+  grunt.registerTask('buildSkipTests', [
     'clean:dist',
     'wiredep',
     'useminPrepare',
@@ -450,7 +465,12 @@ module.exports = function (grunt) {
   ]);
 
   grunt.registerTask('default', [
-    'build',
-    'test'
+    'newer:jshint',
+    /*
+     * Since we dont have test (or up to date) there is no reason to keep this task
+     * I am commented this, but can be changed in the future (if someone want to implement front tests).
+    'test',
+    */
+    'build'
   ]);
 };

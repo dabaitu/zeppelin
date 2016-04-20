@@ -233,7 +233,6 @@ public class ProcessData {
             String exceptionAsString = sw.toString();
             LOG.error(exceptionAsString);
           } catch (Exception ignore) {
-            LOG.info("Exception in ProcessData while buildOutputAndErrorStreamData ", ignore);
           }
           break;
         }

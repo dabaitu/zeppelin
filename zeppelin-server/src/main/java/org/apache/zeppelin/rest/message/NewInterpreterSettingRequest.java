@@ -17,10 +17,8 @@
 
 package org.apache.zeppelin.rest.message;
 
-import java.util.List;
 import java.util.Map;
 
-import org.apache.zeppelin.dep.Dependency;
 import org.apache.zeppelin.interpreter.InterpreterOption;
 
 /**
@@ -30,10 +28,8 @@ import org.apache.zeppelin.interpreter.InterpreterOption;
 public class NewInterpreterSettingRequest {
   String name;
   String group;
-
+  // option was deprecated
   Map<String, String> properties;
-  List<Dependency> dependencies;
-  InterpreterOption option;
 
   public NewInterpreterSettingRequest() {
 
@@ -51,11 +47,4 @@ public class NewInterpreterSettingRequest {
     return properties;
   }
 
-  public List<Dependency> getDependencies() {
-    return dependencies;
-  }
-
-  public InterpreterOption getOption() {
-    return option;
-  }
 }

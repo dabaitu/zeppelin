@@ -22,28 +22,28 @@ limitations under the License.
 ## Zeppelin REST API
  Zeppelin provides several REST API's for interaction and remote activation of zeppelin functionality.
  
- All REST API are available starting with the following endpoint `http://[zeppelin-server]:[zeppelin-port]/api`.
- Note that zeppein REST API receive or return JSON objects, it it recommended you install some JSON viewers such as
- [JSON View](https://chrome.google.com/webstore/detail/jsonview/chklaanhfefbnpoihckbnefhakgolnmc).
+ All REST API are available starting with the following endpoint ```http://[zeppelin-server]:[zeppelin-port]/api```
  
- If you work with zeppelin and find a need for an additional REST API, please [file an issue or send us mail](http://zeppelin.incubator.apache.org/community.html).
+ Note that zeppein REST API receive or return JSON objects, it it recommended you install some JSON view such as 
+ [JSONView](https://chrome.google.com/webstore/detail/jsonview/chklaanhfefbnpoihckbnefhakgolnmc)
+ 
+ 
+ If you work with zeppelin and find a need for an additional REST API please [file an issue or send us mail](../../community.html) 
 
  <br />
-## Interpreter REST API List
+### Interpreter REST API list
   
-  The role of registered interpreters, settings and interpreters group are described in [here](../manual/interpreters.html).
+  The role of registered interpreters, settings and interpreters group is described [here](../manual/interpreters.html)
   
-### 1. List of Registered Interpreters & Interpreter Settings
-
   <table class="table-configuration">
     <col width="200">
     <tr>
-      <th>List of registered interpreters</th>
+      <th>List registered interpreters</th>
       <th></th>
     </tr>
     <tr>
       <td>Description</td>
-      <td>This ```GET``` method returns all the registered interpreters available on the server.</td>
+      <td>This ```GET``` method return all the registered interpreters available on the server.</td>
     </tr>
     <tr>
       <td>URL</td>
@@ -54,11 +54,12 @@ limitations under the License.
       <td>200</td>
     </tr>
     <tr>
-      <td>Fail code</td>
+      <td> Fail code</td>
       <td> 500 </td>
     </tr>
     <tr>
-      <td>Sample JSON response</td>
+      <td> sample JSON response
+      </td>
       <td>
         <pre>
 {
@@ -112,12 +113,12 @@ limitations under the License.
   <table class="table-configuration">
     <col width="200">
     <tr>
-      <th>List of interpreters settings</th>
+      <th>List interpreters settings</th>
       <th></th>
     </tr>
     <tr>
       <td>Description</td>
-      <td>This ```GET``` method returns all the interpreters settings registered on the server.</td>
+      <td>This ```GET``` method return all the interpreters settings registered on the server.</td>
     </tr>
     <tr>
       <td>URL</td>
@@ -128,11 +129,12 @@ limitations under the License.
       <td>200</td>
     </tr>
     <tr>
-      <td>Fail code</td>
+      <td> Fail code</td>
       <td> 500 </td>
     </tr>
     <tr>
-      <td>Sample JSON response</td>
+      <td> sample JSON response
+      </td>
       <td>
         <pre>
 {
@@ -151,8 +153,7 @@ limitations under the License.
           "class": "org.apache.zeppelin.markdown.Markdown",
           "name": "md"
         }
-      ],
-      "dependencies": []
+      ]
     },  
     {
       "id": "2AY6GV7Q3",
@@ -171,11 +172,6 @@ limitations under the License.
           "class": "org.apache.zeppelin.spark.SparkSqlInterpreter",
           "name": "sql"
         }
-      ],
-      "dependencies": [
-        {
-          "groupArtifactVersion": "com.databricks:spark-csv_2.10:1.3.0"
-        }
       ]
     }
   ]
@@ -186,8 +182,7 @@ limitations under the License.
   </table>
 
 <br/>
-### 2. Create an Interpreter Setting
-
+   
   <table class="table-configuration">
     <col width="200">
     <tr>
@@ -207,11 +202,12 @@ limitations under the License.
       <td>201</td>
     </tr>
     <tr>
-      <td>Fail code</td>
+      <td> Fail code</td>
       <td> 500 </td>
     </tr>
     <tr>
-      <td>Sample JSON input</td>
+      <td> sample JSON input
+      </td>
       <td>
         <pre>
 {
@@ -225,19 +221,14 @@ limitations under the License.
       "class": "org.apache.zeppelin.markdown.Markdown",
       "name": "md"
     }
-  ],
-  "dependencies": [
-    {
-      "groupArtifactVersion": "groupId:artifactId:version",
-      "exclusions": "groupId:artifactId"
-    }
   ]
 }
         </pre>
       </td>
     </tr>
     <tr>
-      <td>Sample JSON response</td>
+      <td> sample JSON response
+      </td>
       <td>
         <pre>
 {
@@ -255,12 +246,6 @@ limitations under the License.
         "class": "org.apache.zeppelin.markdown.Markdown",
         "name": "md"
       }
-    ],
-    "dependencies": [
-      {
-        "groupArtifactVersion": "groupId:artifactId:version",
-        "exclusions": "groupId:artifactId"
-      }
     ]
   }
 }
@@ -271,8 +256,7 @@ limitations under the License.
   
   
 <br/>
-
-### 3. Update an Interpreter Setting
+   
   <table class="table-configuration">
     <col width="200">
     <tr>
@@ -292,11 +276,12 @@ limitations under the License.
       <td>200</td>
     </tr>
     <tr>
-      <td>Fail code</td>
+      <td> Fail code</td>
       <td> 500 </td>
     </tr>
     <tr>
-      <td>Sample JSON input</td>
+      <td> sample JSON input
+      </td>
       <td>
         <pre>
 {
@@ -310,19 +295,14 @@ limitations under the License.
       "class": "org.apache.zeppelin.markdown.Markdown",
       "name": "md"
     }
-  ],
-  "dependencies": [
-    {
-      "groupArtifactVersion": "groupId:artifactId:version",
-      "exclusions": "groupId:artifactId"
-    }
   ]
 }
         </pre>
       </td>
     </tr>
     <tr>
-      <td>Sample JSON response</td>
+      <td> sample JSON response
+      </td>
       <td>
         <pre>
 {
@@ -340,12 +320,6 @@ limitations under the License.
         "class": "org.apache.zeppelin.markdown.Markdown",
         "name": "md"
       }
-    ],
-    "dependencies": [
-      {
-        "groupArtifactVersion": "groupId:artifactId:version",
-        "exclusions": "groupId:artifactId"
-      }
     ]
   }
 }
@@ -356,8 +330,7 @@ limitations under the License.
 
   
 <br/>
-### 4. Delete an Interpreter Setting
-
+   
   <table class="table-configuration">
     <col width="200">
     <tr>
@@ -381,17 +354,17 @@ limitations under the License.
       <td> 500 </td>
     </tr>
     <tr>
-      <td>Sample JSON response</td>
+      <td> sample JSON response
+      </td>
       <td>
-        <code>{"status":"OK"}</code>
+        <pre>{"status":"OK"}</pre>
       </td>
     </tr>
   </table>
 
   
 <br/>
-### 5. Restart an Interpreter
-
+   
   <table class="table-configuration">
     <col width="200">
     <tr>
@@ -400,7 +373,7 @@ limitations under the License.
     </tr>
     <tr>
       <td>Description</td>
-      <td>This ```PUT``` method restarts the given interpreter id.</td>
+      <td>This ```PUT``` method restart the given interpreter id.</td>
     </tr>
     <tr>
       <td>URL</td>
@@ -411,85 +384,14 @@ limitations under the License.
       <td>200</td>
     </tr>
     <tr>
-      <td>Fail code</td>
+      <td> Fail code</td>
       <td> 500 </td>
     </tr>
     <tr>
-      <td>Sample JSON response</td>
-      <td>
-        <code>{"status":"OK"}</code>
+      <td> sample JSON response
       </td>
-    </tr>
-  </table>
-
-<br/>
-### 6. Add repository for dependency resolving
-
-  <table class="table-configuration">
-    <col width="200">
-    <tr>
-      <th>Add new repository for dependency loader</th>
-      <th></th>
-    </tr>
-    <tr>
-      <td>Description</td>
-      <td>This ```POST``` method adds new repository.</td>
-    </tr>
-    <tr>
-      <td>URL</td>
-      <td>```http://[zeppelin-server]:[zeppelin-port]/api/interpreter/repository```</td>
-    </tr>
-    <tr>
-      <td>Success code</td>
-      <td>201</td>
-    </tr>
-    <tr>
-      <td>Fail code</td>
-      <td> 500 </td>
-    </tr>
-    <tr>
-      <td>Sample JSON input</td>
       <td>
-        <pre>
-{
-  "id": "securecentral",
-  "url": "https://repo1.maven.org/maven2",
-  "snapshot": false
-}
-        </pre>
+        <pre>{"status":"OK"}</pre>
       </td>
-    </tr>
-    <tr>
-      <td>Sample JSON response</td>
-      <td>
-        <code>{"status":"OK"}</code>
-      </td>
-    </tr>
-  </table>
-
-<br/>
-### 7. Delete repository for dependency resolving
-
-  <table class="table-configuration">
-    <col width="200">
-    <tr>
-      <th>Delete repository for dependency loader</th>
-      <th></th>
-    </tr>
-    <tr>
-      <td>Description</td>
-      <td>This ```DELETE``` method delete repository with given id.</td>
-    </tr>
-    <tr>
-      <td>URL</td>
-      <td>```http://[zeppelin-server]:[zeppelin-port]/api/interpreter/repository/[repository ID]```</td>
-    </tr>
-    <tr>
-      <td>Success code</td>
-      <td>200</td>
-    </tr>
-    <tr>
-      <td>Fail code</td>
-      <td> 500 </td>
     </tr>
   </table>
