@@ -18,21 +18,28 @@
 package org.apache.zeppelin.notebook;
 
 import org.apache.zeppelin.credential.Credentials;
+import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.credential.UserCredentials;
 import org.apache.zeppelin.credential.UsernamePassword;
 import org.apache.zeppelin.display.AngularObjectRegistry;
+import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.display.GUI;
 import org.apache.zeppelin.display.Input;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.Interpreter.FormType;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
+import org.apache.zeppelin.resource.ResourcePool;
 import org.apache.zeppelin.scheduler.Job;
 import org.apache.zeppelin.scheduler.JobListener;
+import org.apache.zeppelin.scheduler.Scheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
+
+import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Paragraph is a representation of an execution unit.
@@ -46,10 +53,18 @@ public class Paragraph extends Job implements Serializable, Cloneable {
 
   String title;
   String text;
+  String executingUser;
+  private transient AuthenticationInfo authenticationInfo;
   Date dateUpdated;
-  String executingUser;                // user who last ran the note
   private Map<String, Object> config; // paragraph configs like isOpen, colWidth, etc
   public final GUI settings;          // form and parameter settings
+
+  @VisibleForTesting
+  Paragraph() {
+    super(generateId(), null);
+    config = new HashMap<>();
+    settings = new GUI();
+  }
 
   public Paragraph(Note note, JobListener listener, NoteInterpreterLoader replLoader) {
     super(generateId(), listener);
@@ -57,8 +72,9 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     this.replLoader = replLoader;
     title = null;
     text = null;
-    dateUpdated = null;
     executingUser = null;
+    authenticationInfo = null;
+    dateUpdated = null;
     settings = new GUI();
     config = new HashMap<String, Object>();
   }
@@ -77,6 +93,14 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     this.dateUpdated = new Date();
   }
 
+  public AuthenticationInfo getAuthenticationInfo() {
+    return authenticationInfo;
+  }
+
+  public void setAuthenticationInfo(AuthenticationInfo authenticationInfo) {
+    this.authenticationInfo = authenticationInfo;
+    this.executingUser = authenticationInfo.getUser();
+  }
 
   public String getTitle() {
     return title;
@@ -94,16 +118,13 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     return note;
   }
 
+  public boolean isEnabled() {
+    Boolean enabled = (Boolean) config.get("enabled");
+    return enabled == null || enabled.booleanValue();
+  }
+
   public String getRequiredReplName() {
     return getRequiredReplName(text);
-  }
-
-  public String getExecutingUser() {
-    return executingUser;
-  }
-
-  public void setExecutingUser(String executingUser) {
-    this.executingUser = executingUser;
   }
 
   public static String getExtendedRequiredReplName(String text) {
@@ -183,6 +204,10 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     return replLoader.get(name);
   }
 
+  public Interpreter getCurrentRepl() {
+    return getRepl(getRequiredReplName());
+  }
+
   public List<String> completion(String buffer, int cursor) {
     String replName = getRequiredReplName(buffer);
     if (replName != null) {
@@ -239,6 +264,12 @@ public class Paragraph extends Job implements Serializable, Cloneable {
       String scriptBody = getScriptBody();
       Map<String, Input> inputs = Input.extractSimpleQueryParam(scriptBody); // inputs will be built
                                                                              // from script body
+
+      final AngularObjectRegistry angularRegistry = repl.getInterpreterGroup()
+              .getAngularObjectRegistry();
+
+      scriptBody = extractVariablesFromAngularRegistry(scriptBody, inputs, angularRegistry);
+
       settings.setForms(inputs);
       script = Input.getSimpleQuery(settings.getParams(), scriptBody);
     }
@@ -246,18 +277,41 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     try {
       InterpreterContext context = getInterpreterContext();
       String dataSourceKey = getDataSourceKey(getScriptBody());
-      if (context.getPassword() == null) {
+      if (context.getAuthenticationInfo().getPassword() == null) {
         logger().info("Password for user {} missing for data source {}",
-                executingUser, dataSourceKey);
+                context.getAuthenticationInfo().getUser(), dataSourceKey);
       }
       InterpreterContext.set(context);
       InterpreterResult ret = repl.interpret(script, context);
-      logger().info("Interpreter context: Executing User: " + context.getExecutingUser());
+      logger().info("Interpreter context: Executing User: " +
+              context.getAuthenticationInfo().getUser());
 
       if (Code.KEEP_PREVIOUS_RESULT == ret.code()) {
         return getReturn();
       }
-      return ret;
+
+      String message = "";
+
+      context.out.flush();
+      InterpreterResult.Type outputType = context.out.getType();
+      byte[] interpreterOutput = context.out.toByteArray();
+      context.out.clear();
+
+      if (interpreterOutput != null && interpreterOutput.length > 0) {
+        message = new String(interpreterOutput);
+      }
+
+      if (message.isEmpty()) {
+        return ret;
+      } else {
+        String interpreterResultMessage = ret.message();
+        if (interpreterResultMessage != null && !interpreterResultMessage.isEmpty()) {
+          message += interpreterResultMessage;
+          return new InterpreterResult(ret.code(), ret.type(), message);
+        } else {
+          return new InterpreterResult(ret.code(), outputType, message);
+        }
+      }
     } finally {
       InterpreterContext.remove();
     }
@@ -266,7 +320,17 @@ public class Paragraph extends Job implements Serializable, Cloneable {
   @Override
   protected boolean jobAbort() {
     Interpreter repl = getRepl(getRequiredReplName());
-    Job job = repl.getScheduler().removeFromWaitingQueue(getId());
+    if (repl == null) {
+      // when interpreters are already destroyed
+      return true;
+    }
+
+    Scheduler scheduler = repl.getScheduler();
+    if (scheduler == null) {
+      return true;
+    }
+
+    Job job = scheduler.removeFromWaitingQueue(getId());
     if (job != null) {
       job.setStatus(Status.ABORT);
     } else {
@@ -300,7 +364,7 @@ public class Paragraph extends Job implements Serializable, Cloneable {
 
   private InterpreterContext getInterpreterContext() {
     AngularObjectRegistry registry = null;
-    String password = null;
+    ResourcePool resourcePool = null;
     Credentials credentials = Credentials.getCredentials();
     String dataSourceKey = null;
     try {
@@ -312,6 +376,7 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     if (!getNoteReplLoader().getInterpreterSettings().isEmpty()) {
       InterpreterSetting intpGroup = getNoteReplLoader().getInterpreterSettings().get(0);
       registry = intpGroup.getInterpreterGroup().getAngularObjectRegistry();
+      resourcePool = intpGroup.getInterpreterGroup().getResourcePool();
     }
 
     List<InterpreterContextRunner> runners = new LinkedList<InterpreterContextRunner>();
@@ -319,12 +384,14 @@ public class Paragraph extends Job implements Serializable, Cloneable {
       runners.add(new ParagraphRunner(note, note.id(), p.getId()));
     }
 
-    UserCredentials userCredentials = credentials.getUserCredentials(executingUser);
+    final Paragraph self = this;
+    UserCredentials userCredentials = credentials.getUserCredentials(authenticationInfo.getUser());
     if (userCredentials != null) {
       UsernamePassword userPassword = userCredentials.getUsernamePassword(dataSourceKey);
       if (userPassword != null) {
         executingUser = userPassword.getUsername();
-        password = userPassword.getPassword();
+        authenticationInfo.setUser(userPassword.getUsername());
+        authenticationInfo.setPassword(userPassword.getPassword());
       }
     }
 
@@ -333,17 +400,44 @@ public class Paragraph extends Job implements Serializable, Cloneable {
             getId(),
             this.getTitle(),
             this.getText(),
+            this.getAuthenticationInfo(),
             this.getConfig(),
             this.settings,
             registry,
+            resourcePool,
             runners,
-            executingUser,
-            password);
+            new InterpreterOutput(new InterpreterOutputListener() {
+              @Override
+              public void onAppend(InterpreterOutput out, byte[] line) {
+                updateParagraphResult(out);
+                ((ParagraphJobListener) getListener()).onOutputAppend(self, out, new String(line));
+              }
+
+              @Override
+              public void onUpdate(InterpreterOutput out, byte[] output) {
+                updateParagraphResult(out);
+                ((ParagraphJobListener) getListener()).onOutputUpdate(self, out,
+                        new String(output));
+              }
+
+              private void updateParagraphResult(InterpreterOutput out) {
+                // update paragraph result
+                Throwable t = null;
+                String message = null;
+                try {
+                  message = new String(out.toByteArray());
+                } catch (IOException e) {
+                  logger().error(e.getMessage(), e);
+                  t = e;
+                }
+                setReturn(new InterpreterResult(Code.SUCCESS, out.getType(), message), t);
+              }
+            }));
     return interpreterContext;
   }
 
   static class ParagraphRunner extends InterpreterContextRunner {
-    private Note note;
+    private transient Note note;
 
     public ParagraphRunner(Note note, String noteId, String paragraphId) {
       super(noteId, paragraphId);
@@ -380,5 +474,26 @@ public class Paragraph extends Job implements Serializable, Cloneable {
   public Object clone() throws CloneNotSupportedException {
     Paragraph paraClone = (Paragraph) this.clone();
     return paraClone;
+  }
+
+  String extractVariablesFromAngularRegistry(String scriptBody, Map<String, Input> inputs,
+                                             AngularObjectRegistry angularRegistry) {
+
+    final String noteId = this.getNote().getId();
+    final String paragraphId = this.getId();
+
+    final Set<String> keys = new HashSet<>(inputs.keySet());
+
+    for (String varName : keys) {
+      final AngularObject paragraphScoped = angularRegistry.get(varName, noteId, paragraphId);
+      final AngularObject noteScoped = angularRegistry.get(varName, noteId, null);
+      final AngularObject angularObject = paragraphScoped != null ? paragraphScoped : noteScoped;
+      if (angularObject != null) {
+        inputs.remove(varName);
+        final String pattern = "[$][{]\\s*" + varName + "\\s*(?:=[^}]+)?[}]";
+        scriptBody = scriptBody.replaceAll(pattern, angularObject.get().toString());
+      }
+    }
+    return scriptBody;
   }
 }
