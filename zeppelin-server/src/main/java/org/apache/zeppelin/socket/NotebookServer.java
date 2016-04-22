@@ -65,6 +65,7 @@ public class NotebookServer extends WebSocketServlet implements
         NotebookSocketListener, JobListenerFactory, AngularObjectRegistryListener,
         RemoteInterpreterProcessListener {
   private static final Logger LOG = LoggerFactory.getLogger(NotebookServer.class);
+  private static final String ADMIN_GROUP = "coremetrics-team";
   Gson gson = new Gson();
   final Map<String, List<NotebookSocket>> noteSocketMap = new HashMap<>();
   final Queue<NotebookSocket> connectedSockets = new ConcurrentLinkedQueue<>();
@@ -527,25 +528,35 @@ public class NotebookServer extends WebSocketServlet implements
     } else {
       boolean cronUpdated = isCronUpdated(config, note.getConfig());
 
+      String prevExecutingUser = (String) note.getConfig().get("executingUser");
       String executingUser = (String) config.get("executingUser");
-      if (executingUser != null && !executingUser.equals(conn.getUser())) {
+
+      if (
+        conn.getGroups().contains(ADMIN_GROUP) ||
+                executingUser == null ||
+                executingUser.equals(prevExecutingUser) ||
+                executingUser.equals(conn.getUser())
+      )
+      {
+        note.setName(name);
+        note.setConfig(config);
+        if (cronUpdated) {
+          notebook.refreshCron(note.id());
+        }
+        note.persist();
+        broadcastNote(note);
+        broadcastNoteList(conn);
+      } else {
         conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
-                "Cron executing user is " + executingUser + "\n"
-                + "It has to be the logged in user which is " + conn.getUser()
-                + "\n\n"
-                + "Support contact: zeppelin-users@twitter.com or zeppelin hipchat"
+          "You are changing cron executing user from " +  prevExecutingUser + " to "
+                  + executingUser + "\n"
+          + "Executing user has to be the logged in user which is " + conn.getUser() + "\n"
+          + "Updates were not saved" + "\n"
+          + "Reload the page in browser to see note settings on the server" + "\n"
+          + "\n"
+          + "Support contact: zeppelin-users@twitter.com or zeppelin hipchat"
         )));
       }
-
-      note.setName(name);
-      note.setConfig(config);
-      if (cronUpdated) {
-        notebook.refreshCron(note.id());
-      }
-
-      note.persist();
-      broadcastNote(note);
-      broadcastNoteList(conn);
     }
   }
 

@@ -244,13 +244,6 @@ public class InterpreterGroup extends ConcurrentHashMap<String, List<Interpreter
         LOGGER.error("Can't close interpreter", e);
       }
     }
-
-    // make sure remote interpreter process terminates
-    if (remoteInterpreterProcess != null) {
-      while (remoteInterpreterProcess.referenceCount() > 0) {
-        remoteInterpreterProcess.dereference();
-      }
-    }
   }
 
 

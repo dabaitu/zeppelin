@@ -72,7 +72,7 @@ ZEPPELIN_SERVER=org.apache.zeppelin.interpreter.remote.RemoteInterpreterServer
 INTERPRETER_ID=$(basename "${INTERPRETER_DIR}")
 ZEPPELIN_PID="${ZEPPELIN_PID_DIR}/zeppelin-interpreter-${INTERPRETER_ID}-${ZEPPELIN_IDENT_STRING}-${HOSTNAME}.pid"
 ZEPPELIN_LOGFILE="${ZEPPELIN_LOG_DIR}/zeppelin-interpreter-${INTERPRETER_ID}-${ZEPPELIN_IDENT_STRING}-${HOSTNAME}.log"
-JAVA_INTP_OPTS+=" -Dzeppelin.log.file=${ZEPPELIN_LOGFILE} -Dlog4j.configuration=file:${ZEPPELIN_CONF_DIR}/log4j.properties"
+JAVA_INTP_OPTS+=" -Dzeppelin.log.file=${ZEPPELIN_LOGFILE}"
 
 if [[ ! -d "${ZEPPELIN_LOG_DIR}" ]]; then
   echo "Log dir doesn't exist, create ${ZEPPELIN_LOG_DIR}"
@@ -150,7 +150,6 @@ fi
 addJarInDir "${LOCAL_INTERPRETER_REPO}"
 
 CLASSPATH+=":${ZEPPELIN_CLASSPATH}"
-
 
 if [[ -n "${SPARK_SUBMIT}" ]]; then
     ${SPARK_SUBMIT} --class ${ZEPPELIN_SERVER} --driver-class-path "${ZEPPELIN_CLASSPATH_OVERRIDES}:${CLASSPATH}" --driver-java-options "${JAVA_INTP_OPTS}" ${SPARK_SUBMIT_OPTIONS} ${SPARK_APP_JAR} ${PORT} &
