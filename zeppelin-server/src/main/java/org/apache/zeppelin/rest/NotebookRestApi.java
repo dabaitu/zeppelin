@@ -33,6 +33,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.zeppelin.interpreter.InterpreterSetting;
 import org.apache.zeppelin.notebook.Note;
@@ -146,9 +147,27 @@ public class NotebookRestApi {
       return new JsonResponse<>(Status.FORBIDDEN, ownerPermissionError(userAndRoles,
               notebookAuthorization.getOwners(noteId))).build();
     }
-    notebookAuthorization.setOwners(noteId, permMap.get("owners"));
-    notebookAuthorization.setReaders(noteId, permMap.get("readers"));
-    notebookAuthorization.setWriters(noteId, permMap.get("writers"));
+    HashSet readers = permMap.get("readers");
+    HashSet owners = permMap.get("owners");
+    HashSet writers = permMap.get("writers");
+    // Set readers, if writers and owners is empty -> set to user requesting the change
+    if (readers != null && !readers.isEmpty()) {
+      if (writers.isEmpty()) {
+        writers = Sets.newHashSet(SecurityUtils.getUser(servReq));
+      }
+      if (owners.isEmpty()) {
+        owners = Sets.newHashSet(SecurityUtils.getUser(servReq));
+      }
+    }
+    // Set writers, if owners is empty -> set to user requesting the change
+    if ( writers != null && !writers.isEmpty()) {
+      if (owners.isEmpty()) {
+        owners = Sets.newHashSet(SecurityUtils.getUser(servReq));
+      }
+    }
+    notebookAuthorization.setReaders(noteId, readers);
+    notebookAuthorization.setWriters(noteId, writers);
+    notebookAuthorization.setOwners(noteId, owners);
     LOG.debug("After set permissions {} {} {}",
             notebookAuthorization.getOwners(noteId),
             notebookAuthorization.getReaders(noteId),
@@ -165,7 +184,8 @@ public class NotebookRestApi {
   @PUT
   @Path("interpreter/bind/{noteId}")
   public Response bind(@PathParam("noteId") String noteId, String req) throws IOException {
-    List<String> settingIdList = gson.fromJson(req, new TypeToken<List<String>>(){}.getType());
+    List<String> settingIdList = gson.fromJson(req, new TypeToken<List<String>>() {
+    }.getType());
     notebook.bindInterpretersToNote(noteId, settingIdList);
     return new JsonResponse<>(Status.OK).build();
   }
