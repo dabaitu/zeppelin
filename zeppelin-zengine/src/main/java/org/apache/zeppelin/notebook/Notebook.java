@@ -493,11 +493,15 @@ public class Notebook {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
 
-      Logger log = LoggerFactory.getLogger(CronJob.class);
       String noteId = context.getJobDetail().getJobDataMap().getString("noteId");
       Note note = notebook.getNote(noteId);
       String executingUser = (String) note.getConfig().get("executingUser");
-      log.info("{} {}", noteId, executingUser);
+      logger.info("{} {}", noteId, executingUser);
+      if (executingUser == null || executingUser.equals("")) {
+        logger.error("Cannot execute runAll for note : {} cronExecutingUser : {}",
+                noteId, executingUser);
+        return;
+      }
       note.runAll(executingUser);
     
       while (!note.getLastParagraph().isTerminated()) {
