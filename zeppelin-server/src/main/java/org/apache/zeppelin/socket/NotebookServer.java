@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import javax.servlet.http.HttpServletRequest;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.Sets;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -150,7 +151,7 @@ public class NotebookServer extends WebSocketServlet implements
             broadcastNoteList(conn);
             break;
           case RELOAD_NOTES_FROM_REPO:
-            broadcastReloadedNoteList();
+            broadcastReloadedNoteList(conn, userAndRoles);
             break;
           case GET_HOME_NOTE:
             sendHomeNote(conn, userAndRoles, notebook);
@@ -434,14 +435,20 @@ public class NotebookServer extends WebSocketServlet implements
     broadcastAll(new Message(OP.NOTES_INFO).put("notes", notesInfo));
   }
 
-  public void broadcastReloadedNoteList() {
+  public void broadcastReloadedNoteList(NotebookSocket conn, HashSet<String> userAndRoles)
+      throws IOException {
+    if (!userAndRoles.contains(ADMIN_GROUP)) {
+      permissionError(conn, "RELOAD_NOTES_FROM_REPO", userAndRoles, Sets.newHashSet(ADMIN_GROUP));
+      broadcastNoteList();
+      return;
+    }
     List<Map<String, String>> notesInfo = generateNotebooksInfo(true);
     broadcastAll(new Message(OP.NOTES_INFO).put("notes", notesInfo));
   }
 
   void permissionError(NotebookSocket conn, String op, Set<String> current,
                       Set<String> allowed) throws IOException {
-    LOG.info("Cannot {}. Connection readers {}. Allowed readers {}",
+    LOG.info("Cannot {}. Connection entities {}. Allowed entities {}",
             op, current, allowed);
     conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
             "Insufficient privileges to " + op + " note.\n\n" +
@@ -459,6 +466,7 @@ public class NotebookServer extends WebSocketServlet implements
 
     String noteId = (String) fromMessage.get("id");
     if (noteId == null) {
+      LOG.error("Noteid is null");
       return;
     }
 
@@ -467,12 +475,13 @@ public class NotebookServer extends WebSocketServlet implements
     if (note != null) {
       if (!notebookAuthorization.isReader(noteId, userAndRoles)) {
         permissionError(conn, "read", userAndRoles, notebookAuthorization.getReaders(noteId));
-        broadcastNoteList();
         return;
       }
       addConnectionToNote(note.id(), conn);
       conn.send(serializeMessage(new Message(OP.NOTE).put("note", note)));
       sendAllAngularObjects(note, conn);
+    } else {
+      LOG.error("Noteid {} not found", noteId);
     }
   }
 
@@ -489,7 +498,6 @@ public class NotebookServer extends WebSocketServlet implements
       NotebookAuthorization notebookAuthorization = notebook.getNotebookAuthorization();
       if (!notebookAuthorization.isReader(noteId, userAndRoles)) {
         permissionError(conn, "read", userAndRoles, notebookAuthorization.getReaders(noteId));
-        broadcastNoteList();
         return;
       }
       addConnectionToNote(note.id(), conn);

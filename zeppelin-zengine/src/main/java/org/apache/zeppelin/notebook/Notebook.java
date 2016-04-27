@@ -504,28 +504,28 @@ public class Notebook {
       }
       note.runAll(executingUser);
     
-      while (!note.getLastParagraph().isTerminated()) {
-        try {
-          Thread.sleep(1000);
-        } catch (InterruptedException e) {
-          logger.error(e.toString(), e);
-        }
-      }
-      
-      boolean releaseResource = false;
-      try {
-        Map<String, Object> config = note.getConfig();
-        if (config != null && config.containsKey("releaseresource")) {
-          releaseResource = (boolean) note.getConfig().get("releaseresource");
-        }
-      } catch (ClassCastException e) {
-        logger.error(e.getMessage(), e);
-      }
-      if (releaseResource) {
-        for (InterpreterSetting setting : note.getNoteReplLoader().getInterpreterSettings()) {
-          notebook.getInterpreterFactory().restart(setting.id());
-        }
-      }
+//      while (!note.getLastParagraph().isTerminated()) {
+//        try {
+//          Thread.sleep(1000);
+//        } catch (InterruptedException e) {
+//          logger.error(e.toString(), e);
+//        }
+//      }
+//
+//      boolean releaseResource = false;
+//      try {
+//        Map<String, Object> config = note.getConfig();
+//        if (config != null && config.containsKey("releaseresource")) {
+//          releaseResource = (boolean) note.getConfig().get("releaseresource");
+//        }
+//      } catch (ClassCastException e) {
+//        logger.error(e.getMessage(), e);
+//      }
+//      if (releaseResource) {
+//        for (InterpreterSetting setting : note.getNoteReplLoader().getInterpreterSettings()) {
+//          notebook.getInterpreterFactory().restart(setting.id());
+//        }
+//      }
     }
   }
 
