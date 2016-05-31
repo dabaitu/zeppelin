@@ -80,7 +80,7 @@ public class ScaldingInterpreter extends Interpreter {
     logger.info("{}", Arrays.toString(args));
 
     PrintWriter printWriter = new PrintWriter(out, true);
-    interpreter = com.twitter.scalding.ZeppelinScaldingShell.getRepl(args, printWriter);
+    interpreter = ZeppelinScaldingShell.getRepl(args, printWriter);
     interpreter.createInterpreter();
   }
 
