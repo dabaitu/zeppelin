@@ -1056,21 +1056,6 @@ public class NotebookServer extends WebSocketServlet implements
 
     String replName = Paragraph.getExtendedRequiredReplName(text);
 
-    if (replName.contains("scalding")) {
-      if (userAndRoles.contains("hadoop-nonpublic")) {
-        LOG.info("Scalding query allowed for {} {}", conn.getUser(), userAndRoles);
-      } else {
-        LOG.info("Scalding query not allowed for {} {}", conn.getUser(), userAndRoles);
-        conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
-                "Insufficient privileges to run scalding query.\n\n" +
-                        "Allowed groups: hadoop-nonpublic" + "\n\n" +
-                        "User: " + conn.getUser() + " belongs to: " +
-                        conn.getUserAndGroups().toString() + "\n\n" ))
-        );
-        return;
-      }
-    }
-
     if (replName.contains("vertica") || replName.contains("mysql")) {
       String dataSourceKey = Paragraph.getDataSourceKey(text);
       UserCredentials userCredentials = Credentials.getCredentials()

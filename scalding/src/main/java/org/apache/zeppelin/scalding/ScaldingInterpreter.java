@@ -18,6 +18,7 @@
 package org.apache.zeppelin.scalding;
 
 import com.twitter.scalding.ScaldingILoop;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterPropertyBuilder;
@@ -30,8 +31,10 @@ import org.slf4j.LoggerFactory;
 import scala.Console;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -92,12 +95,35 @@ public class ScaldingInterpreter extends Interpreter {
 
   @Override
   public InterpreterResult interpret(String cmd, InterpreterContext contextInterpreter) {
-    logger.info("Running Scalding command '" + cmd + "'");
+    String user = contextInterpreter.getAuthenticationInfo().getUser();
+    logger.info("Running Scalding command: user: {} cmd: '{}'", user, cmd);
 
     if (cmd == null || cmd.trim().length() == 0) {
       return new InterpreterResult(Code.SUCCESS);
     }
-    return interpret(cmd.split("\n"), contextInterpreter);
+    InterpreterResult interpreterResult = new InterpreterResult(Code.ERROR);
+    if (property.getProperty(ARGS_STRING).contains("hdfs")) {
+      UserGroupInformation ugi = null;
+      try {
+        ugi = UserGroupInformation.createProxyUser(user, UserGroupInformation.getLoginUser());
+      } catch (IOException e) {
+        logger.error("Error creating UserGroupInformation", e);
+        return new InterpreterResult(Code.ERROR, e.getMessage());
+      }
+      try {
+        interpreterResult = ugi.doAs(new PrivilegedExceptionAction<InterpreterResult>() {
+          public InterpreterResult run() throws Exception {
+            return interpret(cmd.split("\n"), contextInterpreter);
+          }
+        });
+      } catch (Exception e) {
+        logger.error("Error running command with ugi.doAs", e);
+        return new InterpreterResult(Code.ERROR, e.getMessage());
+      }
+    } else {
+      interpreterResult = interpret(cmd.split("\n"), contextInterpreter);
+    }
+    return interpreterResult;
   }
 
   public InterpreterResult interpret(String[] lines, InterpreterContext context) {
