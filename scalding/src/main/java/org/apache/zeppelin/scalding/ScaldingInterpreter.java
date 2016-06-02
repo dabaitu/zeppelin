@@ -49,6 +49,7 @@ public class ScaldingInterpreter extends Interpreter {
   Logger logger = LoggerFactory.getLogger(ScaldingInterpreter.class);
 
   static final String ARGS_STRING = "args.string";
+  static final String MAX_OPEN_INSTANCES = "max.open.instances";
 
   public static final List<String> NO_COMPLETION = 
     Collections.unmodifiableList(new ArrayList<String>());
@@ -59,9 +60,12 @@ public class ScaldingInterpreter extends Interpreter {
       "scalding",
       ScaldingInterpreter.class.getName(),
       new InterpreterPropertyBuilder()
-        .add(ARGS_STRING, "--local --repl", "Arguments for scalding REPL").build());
+        .add(ARGS_STRING, "--local --repl", "Arguments for scalding REPL")
+        .add(MAX_OPEN_INSTANCES, "50", "Maximum number of open interpreter instances")
+        .build());
   }
 
+  static int numOpenInstances = 0;
   private ScaldingILoop interpreter;
   private ByteArrayOutputStream out;
 
@@ -72,6 +76,20 @@ public class ScaldingInterpreter extends Interpreter {
 
   @Override
   public void open() {
+    numOpenInstances = numOpenInstances + 1;
+    String maxOpenInstancesStr = property.getProperty(MAX_OPEN_INSTANCES);
+    int maxOpenInstances = 50;
+    try {
+      maxOpenInstances = Integer.valueOf(maxOpenInstancesStr);
+    } catch (Exception e) {
+      logger.error("Error reading max.open.instances", e);
+    }
+    logger.info("max.open.instances = {}", maxOpenInstances);
+    if (numOpenInstances > maxOpenInstances) {
+      logger.error("Reached maximum number of open instances");
+      return;
+    }
+    logger.info("Opening instance {}", numOpenInstances);
     logger.info("property: {}", property);
     String argsString = property.getProperty(ARGS_STRING);
     String[] args;
@@ -98,6 +116,15 @@ public class ScaldingInterpreter extends Interpreter {
     String user = contextInterpreter.getAuthenticationInfo().getUser();
     logger.info("Running Scalding command: user: {} cmd: '{}'", user, cmd);
 
+    if (interpreter == null) {
+      logger.error(
+        "interpreter == null, open may not have been called because max.open.instances reached");
+      return new InterpreterResult(Code.ERROR,
+        "interpreter == null\n" +
+        "open may not have been called because max.open.instances reached\n" +
+        "Please contact support at zeppelin-users@twitter.com or zeppelin hipchat)"
+      );
+    }
     if (cmd == null || cmd.trim().length() == 0) {
       return new InterpreterResult(Code.SUCCESS);
     }

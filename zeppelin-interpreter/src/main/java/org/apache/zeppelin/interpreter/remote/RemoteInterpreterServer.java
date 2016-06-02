@@ -169,7 +169,8 @@ public class RemoteInterpreterServer
         interpreters.add(new LazyOpenInterpreter(new ClassloaderInterpreter(repl, cl)));
       }
 
-      logger.info("Instantiate interpreter {}", className);
+      logger.info("Instantiate interpreter interpreterGroupId: {} noteId: {} className: {}",
+              interpreterGroupId, noteId, className);
       repl.setInterpreterGroup(interpreterGroup);
     } catch (ClassNotFoundException | NoSuchMethodException | SecurityException
         | InstantiationException | IllegalAccessException
