@@ -363,6 +363,13 @@ public class Note implements Serializable, JobListener {
     }
     synchronized (paragraphs) {
       for (Paragraph p : paragraphs) {
+        String replName = p.getRequiredReplName();
+        logger.info("Note: {} cronExecutingUser: {} paragraph: {} repl: {}",
+                id, cronExecutingUser, p.getId(), replName);
+        if (replName != null && replName.equals("scalding")) {
+          logger.info("Scheduled scalding queries are disabled");
+          continue;
+        }
         if (!p.isEnabled()) {
           continue;
         }
