@@ -84,6 +84,7 @@ public class SparkRInterpreter extends Interpreter {
       // workaround to make sparkr work without SPARK_HOME
       System.setProperty("spark.test.home", System.getenv("ZEPPELIN_HOME") + "/interpreter/spark");
     }
+    logger.info("sparkRLibPath {}", sparkRLibPath);
 
     synchronized (SparkRBackend.backend()) {
       if (!SparkRBackend.isStarted()) {
@@ -135,6 +136,7 @@ public class SparkRInterpreter extends Interpreter {
       }
     }
 
+    logger.info("lines {}", lines);
     try {
       // render output with knitr
       if (useKnitr()) {

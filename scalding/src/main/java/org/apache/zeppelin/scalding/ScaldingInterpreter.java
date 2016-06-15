@@ -116,6 +116,19 @@ public class ScaldingInterpreter extends Interpreter {
     String user = contextInterpreter.getAuthenticationInfo().getUser();
     logger.info("Running Scalding command: user: {} cmd: '{}'", user, cmd);
 
+    if (cmd.contains("java.io")
+            || cmd.contains("java.nio")
+            || cmd.contains("Runtime")
+            || cmd.contains("scala.io")
+            || cmd.contains("sys.process")
+            ) {
+      logger.error(
+              "code contains commands that are not allowed for security reasons");
+      return new InterpreterResult(Code.ERROR,
+              "code contains commands that are not allowed for security reasons\n" +
+                      "Please contact support at zeppelin-users@twitter.com or zeppelin hipchat)"
+      );
+    }
     if (interpreter == null) {
       logger.error(
         "interpreter == null, open may not have been called because max.open.instances reached");

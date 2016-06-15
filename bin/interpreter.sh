@@ -152,7 +152,8 @@ addJarInDir "${LOCAL_INTERPRETER_REPO}"
 CLASSPATH+=":${ZEPPELIN_CLASSPATH}"
 
 if [[ -n "${SPARK_SUBMIT}" ]]; then
-    ${SPARK_SUBMIT} --class ${ZEPPELIN_SERVER} --driver-class-path "${ZEPPELIN_CLASSPATH_OVERRIDES}:${CLASSPATH}" --driver-java-options "${JAVA_INTP_OPTS}" ${SPARK_SUBMIT_OPTIONS} ${SPARK_APP_JAR} ${PORT} &
+    echo ${SPARK_SUBMIT} --class ${ZEPPELIN_SERVER} --driver-class-path "$(hadoop classpath):${CLASSPATH}" --driver-java-options "${JAVA_INTP_OPTS}" ${SPARK_SUBMIT_OPTIONS} ${SPARK_APP_JAR} ${PORT} 
+    ${SPARK_SUBMIT} --class ${ZEPPELIN_SERVER} --driver-class-path "/home/zeppelin-service/zeppelin-data/conf:$(hadoop classpath):${CLASSPATH}" --driver-java-options "${JAVA_INTP_OPTS}" ${SPARK_SUBMIT_OPTIONS} ${SPARK_APP_JAR} ${PORT} &
 elif [[ "${INTERPRETER_ID}" == "scalding" && "${SCALDING_MODE}" == "local" ]]; then
     ${ZEPPELIN_RUNNER} ${JAVA_INTP_OPTS} ${ZEPPELIN_INTP_MEM} -cp ${ZEPPELIN_CLASSPATH_OVERRIDES}:${SCALDING_EXTRA_LIBS}:${CLASSPATH} ${ZEPPELIN_SERVER} ${PORT} &
 elif [[ "${INTERPRETER_ID}" == "scalding" && "${SCALDING_MODE}" == "hdfs" ]]; then

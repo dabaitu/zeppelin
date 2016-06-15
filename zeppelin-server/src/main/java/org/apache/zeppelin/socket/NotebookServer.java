@@ -1056,6 +1056,21 @@ public class NotebookServer extends WebSocketServlet implements
 
     String replName = Paragraph.getExtendedRequiredReplName(text);
 
+    if (replName.contains("spark")) {
+      if (userAndRoles.contains("hadoop-nonpublic")) {
+        LOG.info("Spark query allowed for {} {}", conn.getUser(), userAndRoles);
+      } else {
+        LOG.info("Spark query not allowed for {} {}", conn.getUser(), userAndRoles);
+        conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
+                "Insufficient privileges to run Spark query.\n\n" +
+                        "Allowed groups: hadoop-nonpublic" + "\n\n" +
+                        "User: " + conn.getUser() + " belongs to: " +
+                        conn.getUserAndGroups().toString() + "\n\n" ))
+        );
+        return;
+      }
+    }
+
     if (replName.contains("vertica") || replName.contains("mysql")) {
       String dataSourceKey = Paragraph.getDataSourceKey(text);
       UserCredentials userCredentials = Credentials.getCredentials()
