@@ -112,16 +112,18 @@ public class ScaldingInterpreter extends Interpreter {
 
 
   @Override
-  public InterpreterResult interpret(String cmd, InterpreterContext contextInterpreter) {
+  public InterpreterResult interpret(String origCmd, InterpreterContext contextInterpreter) {
     String user = contextInterpreter.getAuthenticationInfo().getUser();
-    logger.info("Running Scalding command: user: {} cmd: '{}'", user, cmd);
-
+    logger.info("Running scalding command: user: {} cmd: '{}'", user, origCmd);
+    String cmd = "ZeppelinReplState.customConfig += (\"hadoop.tmp.dir\", \"/tmp/hadoop-"
+            + user + "\")\n" + origCmd;
+    logger.info("Running modified scalding command: user: {} cmd: '{}'", user, cmd);
     if (cmd.contains("java.io")
             || cmd.contains("java.nio")
             || cmd.contains("Runtime")
             || cmd.contains("scala.io")
             || cmd.contains("sys.process")
-            ) {
+    ) {
       logger.error(
               "code contains commands that are not allowed for security reasons");
       return new InterpreterResult(Code.ERROR,
