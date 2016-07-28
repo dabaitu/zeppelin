@@ -52,6 +52,21 @@
   width: 100%;
 }
 
+table.dataTable {
+  margin-top: 0px !important;
+  margin-bottom: 6px !important;
+}
+
+table.dataTable.table-condensed > thead > tr > th {
+  padding-right: 28px;
+}
+
+table.dataTable.table-condensed .sorting:after,
+table.dataTable.table-condensed .sorting_asc:after,
+table.dataTable.table-condensed .sorting_desc:after {
+  right: 12px;
+}
+
 .graphContainer {
   position: relative;
   margin-bottom: 5px;
@@ -67,11 +82,13 @@
   border: 3px solid #DDDDDD;
 }
 
-.paragraph .paragraphFooter {
-  height: 9px;
+.paragraph .executionTime {
+  color: #999;
+  font-size: 10px;
+  font-family: 'Roboto', sans-serif;
 }
 
-.paragraph .executionTime {
+.paragraph .elapsedTime {
   color: #999;
   font-size: 10px;
   font-family: 'Roboto', sans-serif;
@@ -339,6 +356,7 @@
 
 .tableDisplay .option .columns ul {
   background: white;
+  overflow: auto;
   width: auto;
   padding: 3px 3px 3px 3px;
   height: 150px;
@@ -382,6 +400,46 @@
 }
 
 /*
+  Handsontable
+*/
+
+.handsontable th {
+  font-weight: bold;
+}
+
+.handsontable th, .handsontable td {
+  border-right: 0px;
+  border-left: 0px !important;
+  padding: 4px;
+}
+
+.handsontable tr:first-child th {
+  text-align: left;
+  border-top: 0px;
+  padding: 4px 0px 0px 0px;
+  border-left: 0px;
+  border-right: 0px;
+  border-bottom: 2px solid #CCC;
+}
+
+.handsontable .columnSorting.ascending::after {
+  content: '\f160';
+  margin-left: 3px;
+  font-size: 12px;
+  font-family: FontAwesome;
+  line-height: 2;
+}
+
+.handsontable .columnSorting.descending::after {
+  content: '\f161';
+  margin-left: 3px;
+  font-size: 12px;
+  margin-left: 3px;
+  font-family: FontAwesome;
+  line-height: 2;
+}
+
+/*
   Pivot CSS
 */
 
@@ -408,10 +466,6 @@
   font-weight: 500;
 }
 
-.dropdown-menu > li:first-child > a:hover {
-  background-color: transparent;
-}
-
 table.table-striped {
   border-top: 1px solid #ddd;
   margin-top: 20px;
@@ -423,10 +477,16 @@ table.table-striped {
   cursor: pointer;
 }
 
-
 .scroll-paragraph-up {
   bottom: 5px;
   cursor: pointer;
   position: absolute;
   right: 15px;
+}
+
+/* DSV download toggle button */
+.caretBtn {
+  padding-right: 4px !important;
+  padding-left: 4px !important;
+  width: 20px;
 }

@@ -19,10 +19,7 @@ package org.apache.zeppelin.spark;
 
 import java.io.File;
 import java.io.PrintWriter;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.lang.reflect.*;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.*;
@@ -30,6 +27,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.common.base.Joiner;
 
+import com.google.common.reflect.TypeToken;
+import com.google.gson.Gson;
 import org.apache.spark.HttpServer;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkContext;
@@ -51,6 +50,7 @@ import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.interpreter.InterpreterUtils;
 import org.apache.zeppelin.interpreter.WrappedInterpreter;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 import org.apache.zeppelin.spark.dep.SparkDependencyContext;
@@ -63,13 +63,17 @@ import scala.Enumeration.Value;
 import scala.collection.Iterator;
 import scala.collection.JavaConversions;
 import scala.collection.JavaConverters;
+import scala.collection.convert.WrapAsJava;
 import scala.collection.Seq;
+import scala.collection.convert.WrapAsJava$;
+import scala.collection.convert.WrapAsScala;
 import scala.collection.mutable.HashMap;
 import scala.collection.mutable.HashSet;
 import scala.reflect.io.AbstractFile;
 import scala.tools.nsc.Settings;
 import scala.tools.nsc.interpreter.Completion.Candidates;
 import scala.tools.nsc.interpreter.Completion.ScalaCompleter;
+import scala.tools.nsc.settings.MutableSettings;
 import scala.tools.nsc.settings.MutableSettings.BooleanSetting;
 import scala.tools.nsc.settings.MutableSettings.PathSetting;
 
@@ -79,38 +83,6 @@ import scala.tools.nsc.settings.MutableSettings.PathSetting;
  */
 public class SparkInterpreter extends Interpreter {
   public static Logger logger = LoggerFactory.getLogger(SparkInterpreter.class);
-
-  static {
-    Interpreter.register(
-      "spark",
-      "spark",
-      SparkInterpreter.class.getName(),
-      new InterpreterPropertyBuilder()
-        .add("spark.app.name",
-          getSystemDefault("SPARK_APP_NAME", "spark.app.name", "Zeppelin"),
-          "The name of spark application.")
-        .add("master",
-          getSystemDefault("MASTER", "spark.master", "local[*]"),
-          "Spark master uri. ex) spark://masterhost:7077")
-        .add("spark.executor.memory",
-          getSystemDefault(null, "spark.executor.memory", ""),
-          "Executor memory per worker instance. ex) 512m, 32g")
-        .add("spark.cores.max",
-          getSystemDefault(null, "spark.cores.max", ""),
-          "Total number of cores to use. Empty value uses all available core.")
-        .add("zeppelin.spark.useHiveContext",
-          getSystemDefault("ZEPPELIN_SPARK_USEHIVECONTEXT",
-            "zeppelin.spark.useHiveContext", "true"),
-          "Use HiveContext instead of SQLContext if it is true.")
-        .add("zeppelin.spark.maxResult",
-          getSystemDefault("ZEPPELIN_SPARK_MAXRESULT", "zeppelin.spark.maxResult", "1000"),
-          "Max number of SparkSQL result to display.")
-        .add("args", "", "spark commandline args")
-        .add("zeppelin.spark.printREPLOutput", "true",
-          "Print REPL output")
-        .build()
-    );
-  }
 
   private ZeppelinContext z;
   private SparkILoop interpreter;
@@ -254,7 +226,7 @@ public class SparkInterpreter extends Interpreter {
   }
 
   public SparkContext createSparkContext() {
-    System.err.println("------ Create new SparkContext " + getProperty("master") + " -------");
+    logger.info("------ Create new SparkContext {} -------", getProperty("master"));
 
     String execUri = System.getenv("SPARK_EXECUTOR_URI");
     String[] jars = SparkILoop.getAddedJars();
@@ -276,15 +248,21 @@ public class SparkInterpreter extends Interpreter {
         classServerUri = (String) classServer.invoke(interpreter.intp());
       } catch (NoSuchMethodException | SecurityException | IllegalAccessException
           | IllegalArgumentException | InvocationTargetException e) {
-        throw new InterpreterException(e);
+        // continue instead of: throw new InterpreterException(e);
+        // Newer Spark versions (like the patched CDH5.7.0 one) don't contain this method
+        logger.warn(String.format("Spark method classServerUri not available due to: [%s]", 
+          e.getMessage()));
       }
     }
 
     SparkConf conf =
         new SparkConf()
             .setMaster(getProperty("master"))
-            .setAppName(getProperty("spark.app.name"))
-            .set("spark.repl.class.uri", classServerUri);
+            .setAppName(getProperty("spark.app.name"));
+
+    if (classServerUri != null) {
+      conf.set("spark.repl.class.uri", classServerUri);
+    }
 
     if (jars.length > 0) {
       conf.setJars(jars);
@@ -488,6 +466,12 @@ public class SparkInterpreter extends Interpreter {
 
     System.setProperty("scala.repl.name.line", "line" + this.hashCode() + "$");
 
+    // To prevent 'File name too long' error on some file system.
+    MutableSettings.IntSetting numClassFileSetting = settings.maxClassfileName();
+    numClassFileSetting.v_$eq(128);
+    settings.scala$tools$nsc$settings$ScalaSettings$_setter_$maxClassfileName_$eq(
+        numClassFileSetting);
+
     synchronized (sharedInterpreterLock) {
       /* create scala repl */
       if (printREPLOutput()) {
@@ -661,7 +645,7 @@ public class SparkInterpreter extends Interpreter {
   }
 
   @Override
-  public List<String> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor) {
     if (buf.length() < cursor) {
       cursor = buf.length();
     }
@@ -672,7 +656,15 @@ public class SparkInterpreter extends Interpreter {
     }
     ScalaCompleter c = completor.completer();
     Candidates ret = c.complete(completionText, cursor);
-    return scala.collection.JavaConversions.asJavaList(ret.candidates());
+
+    List<String> candidates = WrapAsJava$.MODULE$.seqAsJavaList(ret.candidates());
+    List<InterpreterCompletion> completions = new LinkedList<InterpreterCompletion>();
+
+    for (String candidate : candidates) {
+      completions.add(new InterpreterCompletion(candidate, candidate));
+    }
+
+    return completions;
   }
 
   private String getCompletionTargetString(String text, int cursor) {
@@ -901,14 +893,14 @@ public class SparkInterpreter extends Interpreter {
 
     Object completedTaskInfo = null;
 
-    completedTaskInfo = JavaConversions.asJavaMap(
+    completedTaskInfo = JavaConversions.mapAsJavaMap(
         (HashMap<Object, Object>) sparkListener.getClass()
             .getMethod("stageIdToTasksComplete").invoke(sparkListener)).get(id);
 
     if (completedTaskInfo != null) {
       completedTasks += (int) completedTaskInfo;
     }
-    List<Object> parents = JavaConversions.asJavaList((Seq<Object>) stage.getClass()
+    List<Object> parents = JavaConversions.seqAsJavaList((Seq<Object>) stage.getClass()
         .getMethod("parents").invoke(stage));
     if (parents != null) {
       for (Object s : parents) {
@@ -937,7 +929,7 @@ public class SparkInterpreter extends Interpreter {
 
       Method numCompletedTasks = stageUIDataClass.getMethod("numCompleteTasks");
       Set<Tuple2<Object, Object>> keys =
-          JavaConverters.asJavaSetConverter(stageIdData.keySet()).asJava();
+          JavaConverters.setAsJavaSetConverter(stageIdData.keySet()).asJava();
       for (Tuple2<Object, Object> k : keys) {
         if (id == (int) k._1()) {
           Object uiData = stageIdData.get(k).get();
@@ -948,7 +940,7 @@ public class SparkInterpreter extends Interpreter {
       logger.error("Error on getting progress information", e);
     }
 
-    List<Object> parents = JavaConversions.asJavaList((Seq<Object>) stage.getClass()
+    List<Object> parents = JavaConversions.seqAsJavaList((Seq<Object>) stage.getClass()
         .getMethod("parents").invoke(stage));
     if (parents != null) {
       for (Object s : parents) {

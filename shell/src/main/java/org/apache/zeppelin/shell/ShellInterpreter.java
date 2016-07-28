@@ -32,6 +32,7 @@ import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterPropertyBuilder;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.scheduler.Job;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
@@ -45,26 +46,11 @@ public class ShellInterpreter extends Interpreter {
   Logger logger = LoggerFactory.getLogger(ShellInterpreter.class);
   private static final String EXECUTOR_KEY = "executor";
   public static final String SHELL_COMMAND_TIMEOUT = "shell.command.timeout.millisecs";
-  public static final String DEFAULT_COMMAND_TIMEOUT = "600000";
   int commandTimeOut;
   private static final boolean isWindows = System
           .getProperty("os.name")
           .startsWith("Windows");
   final String shell = isWindows ? "cmd /c" : "bash -c";
-
-  static {
-    Interpreter.register(
-            "sh",
-            "sh",
-            ShellInterpreter.class.getName(),
-            new InterpreterPropertyBuilder()
-              .add(
-                SHELL_COMMAND_TIMEOUT,
-                DEFAULT_COMMAND_TIMEOUT,
-                "Shell command time out in millisecs. Default = 600000")
-              .build()
-    );
-  }
 
   public ShellInterpreter(Properties property) {
     super(property);
@@ -165,7 +151,7 @@ public class ShellInterpreter extends Interpreter {
   }
 
   @Override
-  public List<String> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor) {
     return null;
   }
 

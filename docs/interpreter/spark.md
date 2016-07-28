@@ -8,8 +8,8 @@ group: manual
 
 
 ## Spark Interpreter for Apache Zeppelin
-[Apache Spark](http://spark.apache.org) is supported in Zeppelin with 
-Spark Interpreter group, which consisted of 4 interpreters.
+[Apache Spark](http://spark.apache.org) is supported in Zeppelin with
+Spark Interpreter group, which consists of five interpreters.
 
 <table class="table-configuration">
   <tr>
@@ -20,17 +20,22 @@ Spark Interpreter group, which consisted of 4 interpreters.
   <tr>
     <td>%spark</td>
     <td>SparkInterpreter</td>
-    <td>Creates SparkContext and provides scala environment</td>
+    <td>Creates a SparkContext and provides a scala environment</td>
   </tr>
   <tr>
     <td>%pyspark</td>
     <td>PySparkInterpreter</td>
-    <td>Provides python environment</td>
+    <td>Provides a python environment</td>
+  </tr>
+  <tr>
+    <td>%r</td>
+    <td>SparkRInterpreter</td>
+    <td>Provides an R environment with SparkR support</td>
   </tr>
   <tr>
     <td>%sql</td>
     <td>SparkSQLInterpreter</td>
-    <td>Provides SQL environment</td>
+    <td>Provides a SQL environment</td>
   </tr>
   <tr>
     <td>%dep</td>
@@ -40,8 +45,8 @@ Spark Interpreter group, which consisted of 4 interpreters.
 </table>
 
 ## Configuration
-Zeppelin provides the below properties for Spark interpreter. 
-You can also set other Spark properties which are not listed in the table. If so, please refer to [Spark Available Properties](http://spark.apache.org/docs/latest/configuration.html#available-properties).
+The Spark interpreter can be configured with properties provided by Zeppelin. 
+You can also set other Spark properties which are not listed in the table. For a list of additional properties, refer to [Spark Available Properties](http://spark.apache.org/docs/latest/configuration.html#available-properties).
 <table class="table-configuration">
   <tr>
     <th>Property</th>
@@ -138,7 +143,7 @@ for example,
  * **yarn-client** in Yarn client mode
  * **mesos://host:5050** in Mesos cluster
 
-That's it. Zeppelin will work with any version of Spark and any deployment type without rebuilding Zeppelin in this way. ( Zeppelin 0.5.5-incubating release works up to Spark 1.5.2 )
+That's it. Zeppelin will work with any version of Spark and any deployment type without rebuilding Zeppelin in this way. (Zeppelin 0.5.6-incubating release works up to Spark 1.6.1 )
 
 > Note that without exporting `SPARK_HOME`, it's running in local mode with included version of Spark. The included version may vary depending on the build profile.
 
@@ -199,7 +204,7 @@ Here are few examples:
 		spark.files				/path/mylib1.py,/path/mylib2.egg,/path/mylib3.zip
 
 ### 3. Dynamic Dependency Loading via %dep interpreter
-> Note: `%dep` interpreter is deprecated since v0.6.0-incubating.
+> Note: `%dep` interpreter is deprecated since v0.6.0.
 `%dep` interpreter load libraries to `%spark` and `%pyspark` but not to  `%spark.sql` interpreter so we recommend you to use first option instead.
 
 When your code requires external library, instead of doing download/copy/restart Zeppelin, you can easily do following jobs using `%dep` interpreter.
@@ -273,13 +278,13 @@ z.put("objName", myObject)
 %pyspark
 myObject = z.get("objName")
 {% endhighlight %}
-  
+
   </div>
 </div>
 
 ### Form Creation
 
-ZeppelinContext provides functions for creating forms. 
+ZeppelinContext provides functions for creating forms.
 In scala and python environments, you can create forms programmatically.
 <div class="codetabs">
   <div data-lang="scala" markdown="1">
@@ -306,13 +311,13 @@ z.select("formName", "option1", Seq(("option1", "option1DisplayName"),
 
 {% highlight python %}
 %pyspark
-# Create text input form 
+# Create text input form
 z.input("formName")
 
-# Create text input form with default value 
+# Create text input form with default value
 z.input("formName", "defaultValue")
 
-# Create select form 
+# Create select form
 z.select("formName", [("option1", "option1DisplayName"),
                       ("option2", "option2DisplayName")])
 
@@ -320,7 +325,7 @@ z.select("formName", [("option1", "option1DisplayName"),
 z.select("formName", [("option1", "option1DisplayName"),
                       ("option2", "option2DisplayName")], "option1")
 {% endhighlight %}
-  
+
   </div>
 </div>
 
@@ -334,9 +339,10 @@ select * from ${table=defaultTableName} where text like '%${search}%'
 To learn more about dynamic form, checkout [Dynamic Form](../manual/dynamicform.html).
 
 
-### Separate Interpreter for each note
+### Interpreter setting option.
 
-In 'Separate Interpreter for each note' mode, SparkInterpreter creates scala compiler per each notebook. However it still shares the single SparkContext.
+Interpreter setting can choose one of 'shared', 'scoped', 'isolated' option. Spark interpreter creates separate scala compiler per each notebook but share a single SparkContext in 'scoped' mode (experimental). It creates separate SparkContext per each notebook in 'isolated' mode.
+
 
 ## Setting up Zeppelin with Kerberos
 Logical setup with Zeppelin, Kerberos Key Distribution Center (KDC), and Spark on YARN:
@@ -348,16 +354,14 @@ Logical setup with Zeppelin, Kerberos Key Distribution Center (KDC), and Spark o
 1. On the server that Zeppelin is installed, install Kerberos client modules and configuration, krb5.conf.
 This is to make the server communicate with KDC.
 
-2. Set SPARK\_HOME in [ZEPPELIN\_HOME]/conf/zeppelin-env.sh to use spark-submit
-( Additionally, you might have to set “export HADOOP\_CONF\_DIR=/etc/hadoop/conf” )
+2. Set SPARK\_HOME in `[ZEPPELIN\_HOME]/conf/zeppelin-env.sh` to use spark-submit
+(Additionally, you might have to set `export HADOOP\_CONF\_DIR=/etc/hadoop/conf`)
 
-3. Add the two properties below to spark configuration ( [SPARK_HOME]/conf/spark-defaults.conf ):
+3. Add the two properties below to spark configuration (`[SPARK_HOME]/conf/spark-defaults.conf`):
 
         spark.yarn.principal
         spark.yarn.keytab
 
   > **NOTE:** If you do not have access to the above spark-defaults.conf file, optionally, you may add the lines to the Spark Interpreter through the Interpreter tab in the Zeppelin UI.
 
-4. That's it. Play with Zeppelin !
-
-
+4. That's it. Play with Zeppelin!

@@ -21,26 +21,20 @@ limitations under the License.
 
 ## Zeppelin REST API
  Zeppelin provides several REST APIs for interaction and remote activation of zeppelin functionality.
- 
- All REST APIs are available starting with the following endpoint ```http://[zeppelin-server]:[zeppelin-port]/api```
- 
- Note that zeppelin REST APIs receive or return JSON objects, it is recommended for you to install some JSON viewers
-  such as [JSONView](https://chrome.google.com/webstore/detail/jsonview/chklaanhfefbnpoihckbnefhakgolnmc)
- 
- 
- If you work with zeppelin and find a need for an additional REST API please [file an issue or send us mail](../../community.html) 
 
- <br />
-### Notebook REST API list
-  
-  Notebooks REST API supports the following operations: List, Create, Get, Delete, Clone, Run, Export, Import as detailed in the following table 
-  
+ All REST APIs are available starting with the following endpoint `http://[zeppelin-server]:[zeppelin-port]/api`. Note that zeppelin REST APIs receive or return JSON objects, it is recommended for you to install some JSON viewers such as [JSONView](https://chrome.google.com/webstore/detail/jsonview/chklaanhfefbnpoihckbnefhakgolnmc).
+
+ If you work with Zeppelin and find a need for an additional REST API, please [file an issue or send us mail](../../community.html).
+
+<br />
+
+## Notebook REST API List
+
+  Notebooks REST API supports the following operations: List, Create, Get, Delete, Clone, Run, Export, Import as detailed in the following tables.
+
+### List Notebooks
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>List notebooks</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```GET``` method lists the available notebooks on your server.
@@ -61,18 +55,29 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK","message":"","body":[{"name":"Homepage","id":"2AV4WUEMK"},{"name":"Zeppelin Tutorial","id":"2A94M5J1Z"}]}</pre></td>
+      <td><pre>
+{
+  "status": "OK",
+  "message": "",
+  "body": [
+    {
+      "name":"Homepage",
+      "id":"2AV4WUEMK"
+    },
+    {
+      "name":"Zeppelin Tutorial",
+      "id":"2A94M5J1Z"
+    }
+  ]
+}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Create Notebook
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Create notebook</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```POST``` method creates a new notebook using the given name or default name if none given.
@@ -93,13 +98,13 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON input (without paragraphs) </td>
-      <td><pre>{ "name": "name of new notebook" }</pre></td>
+      <td><pre>{"name": "name of new notebook"}</pre></td>
     </tr>
     <tr>
       <td> sample JSON input (with initial paragraphs) </td>
       <td><pre>
 {
-  "name": "name of new notebook", 
+  "name": "name of new notebook",
   "paragraphs": [
     {
       "title": "paragraph title1",
@@ -110,23 +115,24 @@ limitations under the License.
       "text": "paragraph text2"
     }
   ]
-}
-      </pre></td>
+}</pre></td>
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status": "CREATED","message": "","body": "2AZPHY918"}</pre></td>
+      <td><pre>
+{
+  "status": "CREATED",
+  "message": "",
+  "body": "2AZPHY918"
+}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Get Notebook
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Get notebook</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```GET``` method retrieves an existing notebook's information using the given id.
@@ -194,8 +200,8 @@ limitations under the License.
           "params": {},
           "forms": {}
         },
-        "jobName": "paragraph_1423500782552_-1439281894",
-        "id": "20150210-015302_1492795503",
+        "jobName": "paragraph\_1423500782552\_-1439281894",
+        "id": "20150210-015302\_1492795503",
         "result": {
           "code": "SUCCESS",
           "type": "TABLE",
@@ -216,19 +222,15 @@ limitations under the License.
     },
     "info": {}
   }
-}
-      </pre></td>
+}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Delete Notebook
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Delete notebook</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```DELETE``` method deletes a notebook by the given notebook id.
@@ -248,21 +250,18 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK","message":""}</pre></td>
+      <td><pre>{"status": "OK","message": ""}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
-  
+
+### Clone Notebook
   <table class="table-configuration">
     <col width="200">
     <tr>
-      <th>Clone notebook</th>
-      <th></th>
-    </tr>
-    <tr>
       <td>Description</td>
-      <td>This ```POST``` method clones a notebook by the given id and create a new notebook using the given name 
+      <td>This ```POST``` method clones a notebook by the given id and create a new notebook using the given name
           or default name if none given.
           The body field of the returned JSON contains the new notebook id.
       </td>
@@ -285,18 +284,20 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status": "CREATED","message": "","body": "2AZPHY918"}</pre></td>
+      <td><pre>
+{
+  "status": "CREATED",
+  "message": "",
+  "body": "2AZPHY918"
+}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Run Notebook Job
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Run notebook job</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```POST``` method runs all paragraph in the given notebook id.
@@ -316,21 +317,18 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK"}</pre></td>
+      <td><pre>{"status": "OK"}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Stop Notebook Job
   <table class="table-configuration">
     <col width="200">
     <tr>
-      <th>Stop notebook job</th>
-      <th></th>
-    </tr>
-    <tr>
       <td>Description</td>
-      <td>This ```DELETE``` method stops all paragraph in the given notebook id. 
+      <td>This ```DELETE``` method stops all paragraph in the given notebook id.
       </td>
     </tr>
     <tr>
@@ -350,20 +348,15 @@ limitations under the License.
       <td><pre>{"status":"OK"}</pre></td>
     </tr>
   </table>
-  
-<br/>
-  
+
 <br/>
 
+### Get Notebook Job
   <table class="table-configuration">
     <col width="200">
     <tr>
-      <th>Get notebook job</th>
-      <th></th>
-    </tr>
-    <tr>
       <td>Description</td>
-      <td>This ```GET``` method gets all paragraph status by the given notebook id. 
+      <td>This ```GET``` method gets all paragraph status by the given notebook id.
           The body field of the returned JSON contains of the array that compose of the paragraph id, paragraph status, paragraph finish date, paragraph started date.
       </td>
     </tr>
@@ -381,21 +374,36 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK","body":[{"id":"20151121-212654_766735423","status":"FINISHED","finished":"Tue Nov 24 14:21:40 KST 2015","started":"Tue Nov 24 14:21:39 KST 2015"},{"progress":"1","id":"20151121-212657_730976687","status":"RUNNING","finished":"Tue Nov 24 14:21:35 KST 2015","started":"Tue Nov 24 14:21:40 KST 2015"}]}</pre></td>
+      <td><pre>
+{
+  "status": "OK",
+  "body": [
+    {
+      "id":"20151121-212654\_766735423",
+      "status":"FINISHED",
+      "finished":"Tue Nov 24 14:21:40 KST 2015",
+      "started":"Tue Nov 24 14:21:39 KST 2015"
+    },
+    {
+      "progress":"1",
+      "id":"20151121-212657\_730976687",
+      "status":"RUNNING",
+      "finished":"Tue Nov 24 14:21:35 KST 2015",
+      "started":"Tue Nov 24 14:21:40 KST 2015"
+    }
+  ]
+}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Run Paragraph Job
   <table class="table-configuration">
     <col width="200">
     <tr>
-      <th>Run paragraph job</th>
-      <th></th>
-    </tr>
-    <tr>
       <td>Description</td>
-      <td>This ```POST``` method runs the paragraph by given notebook and paragraph id. 
+      <td>This ```POST``` method runs the paragraph by given notebook and paragraph id.
       </td>
     </tr>
     <tr>
@@ -419,26 +427,22 @@ limitations under the License.
     "formLabel1": "value1",
     "formLabel2": "value2"
   }
-}
-      </pre></td>
+}</pre></td>
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK"}</pre></td>
+      <td><pre>{"status": "OK"}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Stop Paragraph Job
   <table class="table-configuration">
     <col width="200">
     <tr>
-      <th>Stop paragraph job</th>
-      <th></th>
-    </tr>
-    <tr>
       <td>Description</td>
-      <td>This ```DELETE``` method stops the paragraph by given notebook and paragraph id. 
+      <td>This ```DELETE``` method stops the paragraph by given notebook and paragraph id.
       </td>
     </tr>
     <tr>
@@ -455,21 +459,18 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK"}</pre></td>
+      <td><pre>{"status": "OK"}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Add Cron Job
   <table class="table-configuration">
     <col width="200">
     <tr>
-      <th>Add cron job</th>
-      <th></th>
-    </tr>
-    <tr>
       <td>Description</td>
-      <td>This ```POST``` method adds cron job by the given notebook id. 
+      <td>This ```POST``` method adds cron job by the given notebook id.
       </td>
     </tr>
     <tr>
@@ -490,21 +491,18 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK"}</pre></td>
+      <td><pre>{"status": "OK"}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Remove Cron Job
   <table class="table-configuration">
     <col width="200">
     <tr>
-      <th>Remove cron job</th>
-      <th></th>
-    </tr>
-    <tr>
       <td>Description</td>
-      <td>This ```DELETE``` method removes cron job by the given notebook id. 
+      <td>This ```DELETE``` method removes cron job by the given notebook id.
       </td>
     </tr>
     <tr>
@@ -521,21 +519,18 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK"}</pre></td>
+      <td><pre>{"status": "OK"}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Get Cron Job
   <table class="table-configuration">
     <col width="200">
     <tr>
-      <th>Get cron job</th>
-      <th></th>
-    </tr>
-    <tr>
       <td>Description</td>
-      <td>This ```GET``` method gets cron job expression of given notebook id. 
+      <td>This ```GET``` method gets cron job expression of given notebook id.
           The body field of the returned JSON contains the cron expression.
       </td>
     </tr>
@@ -553,16 +548,15 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK","body":"* * * * * ?"}</pre></td>
+      <td><pre>{"status": "OK", "body": "* * * * * ?"}</pre></td>
     </tr>
   </table>
 
+<br />
+
+### Full Text Search Through the Paragraphs in All Notebooks
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Full-text search through the paragraphs in all notebooks</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>```GET``` request will return list of matching paragraphs
@@ -582,19 +576,26 @@ limitations under the License.
     </tr>
     <tr>
       <td>Sample JSON response </td>
-      <td><pre>{"status":"OK", body: [{"id":"<noteId>/paragraph/<paragraphId>", "name":"Notebook Name", "snippet":"", "text":""}]}</pre></td>
+      <td><pre>
+{
+  "status": "OK",
+  "body": [
+    {
+      "id": "<noteId>/paragraph/<paragraphId>",
+      "name":"Notebook Name", 
+      "snippet":"",
+      "text":""
+    }
+  ]
+}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
-
+### Create Paragraph
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Create paragraph</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```POST``` method create a new paragraph using JSON payload.
@@ -616,35 +617,36 @@ limitations under the License.
     <tr>
       <td> sample JSON input (add to the last) </td>
       <td><pre>
-  { 
-    "title": "Paragraph insert revised", 
-    "text": "%spark\nprintln(\"Paragraph insert revised\")" 
-  }</pre></td>
+{
+  "title": "Paragraph insert revised",
+  "text": "%spark\nprintln(\"Paragraph insert revised\")"
+}</pre></td>
     </tr>
     <tr>
       <td> sample JSON input (add to specific index) </td>
       <td><pre>
-  { 
-    "title": "Paragraph insert revised", 
-    "text": "%spark\nprintln(\"Paragraph insert revised\")",
-    "index": 0
-  }
-      </pre></td>
+{
+  "title": "Paragraph insert revised",
+  "text": "%spark\nprintln(\"Paragraph insert revised\")",
+  "index": 0
+}</pre></td>
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status": "CREATED","message": "","body": "20151218-100330_1754029574"}</pre></td>
+      <td><pre>
+{
+  "status": "CREATED",
+  "message": "",
+  "body": "20151218-100330\_1754029574"
+}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Get Paragraph
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Get paragraph</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```GET``` method retrieves an existing paragraph's information using the given id.
@@ -692,8 +694,8 @@ limitations under the License.
       "params": {},
       "forms": {}
     },
-    "jobName": "paragraph_1450391574392_-1890856722",
-    "id": "20151218-073254_1105602047",
+    "jobName": "paragraph\_1450391574392\_-1890856722",
+    "id": "20151218-073254\_1105602047",
     "result": {
       "code": "SUCCESS",
       "type": "TEXT",
@@ -705,19 +707,15 @@ limitations under the License.
     "status": "FINISHED",
     "progressUpdateIntervalMs": 500
   }
-}
-      </pre></td>
+}</pre></td>
     </tr>
   </table>
-  
+
 <br/>
 
+### Move Paragraph
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Move paragraph</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```POST``` method moves a paragraph to the specific index (order) from the notebook.
@@ -737,19 +735,16 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK","message":""}</pre></td>
+      <td><pre>{"status": "OK","message": ""}</pre></td>
     </tr>
   </table>
-  
+
 
 <br/>
 
+### Delete Paragraph
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Delete paragraph</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```DELETE``` method deletes a paragraph by the given notebook and paragraph id.
@@ -769,18 +764,15 @@ limitations under the License.
     </tr>
     <tr>
       <td> sample JSON response </td>
-      <td><pre>{"status":"OK","message":""}</pre></td>
+      <td><pre>{"status": "OK","message": ""}</pre></td>
     </tr>
   </table>
-  
 
-  
+<br />
+
+### Export Notebook
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Export notebook</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```GET``` method exports a notebook by the given id and gernerates a JSON
@@ -811,8 +803,8 @@ limitations under the License.
         "params": {},
         "forms": {}
       },
-      "jobName": "paragraph_1452300578795_1196072540",
-      "id": "20160108-164938_1685162144",
+      "jobName": "paragraph\_1452300578795\_1196072540",
+      "id": "20160108-164938\_1685162144",
       "dateCreated": "Jan 8, 2016 4:49:38 PM",
       "status": "READY",
       "progressUpdateIntervalMs": 500
@@ -826,13 +818,12 @@ limitations under the License.
 }</pre></td>
     </tr>
   </table>
-  
+
+<br />
+
+### Import Notebook
   <table class="table-configuration">
     <col width="200">
-    <tr>
-      <th>Export notebook</th>
-      <th></th>
-    </tr>
     <tr>
       <td>Description</td>
       <td>This ```POST``` method imports a notebook from the notebook JSON input
@@ -850,8 +841,9 @@ limitations under the License.
       <td> Fail code</td>
       <td> 500 </td>
     </tr>
-    <td> sample JSON input </td>
-      <td><pre>{
+    <td>sample JSON input</td>
+      <td><pre>
+{
   "paragraphs": [
     {
       "text": "%md This is my new paragraph in my new note",
@@ -863,8 +855,8 @@ limitations under the License.
         "params": {},
         "forms": {}
       },
-      "jobName": "paragraph_1452300578795_1196072540",
-      "id": "20160108-164938_1685162144",
+      "jobName": "paragraph\_1452300578795\_1196072540",
+      "id": "20160108-164938\_1685162144",
       "dateCreated": "Jan 8, 2016 4:49:38 PM",
       "status": "READY",
       "progressUpdateIntervalMs": 500
@@ -876,9 +868,14 @@ limitations under the License.
   "config": {},
   "info": {}
 }</pre></td>
-<tr>
-      <td> sample JSON response </td>
-      <td><pre>"status": "CREATED","message": "","body": "2AZPHY918"}</pre></td>
+    <tr>
+      <td>sample JSON response</td>
+      <td><pre>
+{
+  "status": "CREATED",
+  "message": "",
+  "body": "2AZPHY918"
+}</pre></td>
     </tr>
     </tr>
   </table>

@@ -20,20 +20,19 @@ package org.apache.zeppelin.notebook;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
-import java.util.Iterator;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.HashSet;
-import java.util.Arrays;
-import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.commons.lang.StringUtils;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.Input;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.remote.RemoteAngularObjectRegistry;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.notebook.repo.NotebookRepo;
 import org.apache.zeppelin.notebook.utility.IdHashes;
 import org.apache.zeppelin.resource.ResourcePoolUtils;
@@ -42,8 +41,10 @@ import org.apache.zeppelin.scheduler.Job.Status;
 import org.apache.zeppelin.scheduler.JobListener;
 import org.apache.zeppelin.search.SearchService;
 
+import com.google.common.base.Optional;
 import com.google.gson.Gson;
 import org.apache.zeppelin.user.AuthenticationInfo;
+import org.apache.zeppelin.user.Credentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,6 +67,9 @@ public class Note implements Serializable, JobListener {
   private String name = "";
   private String id;
 
+  private AtomicReference<String> lastReplName = new AtomicReference<>(StringUtils.EMPTY);
+  private transient ZeppelinConfiguration conf = ZeppelinConfiguration.create();
+
   @SuppressWarnings("rawtypes")
   Map<String, List<AngularObject>> angularObjects = new HashMap<>();
 
@@ -74,6 +78,7 @@ public class Note implements Serializable, JobListener {
   private transient NotebookRepo repo;
   private transient SearchService index;
   private transient ScheduledFuture delayedPersist;
+  private transient Credentials credentials;
 
   /**
    * note configurations.
@@ -93,16 +98,28 @@ public class Note implements Serializable, JobListener {
   public Note() {}
 
   public Note(NotebookRepo repo, NoteInterpreterLoader replLoader,
-      JobListenerFactory jlFactory, SearchService noteIndex) {
+      JobListenerFactory jlFactory, SearchService noteIndex, Credentials credentials) {
     this.repo = repo;
     this.replLoader = replLoader;
     this.jobListenerFactory = jlFactory;
     this.index = noteIndex;
+    this.credentials = credentials;
     generateId();
   }
 
   private void generateId() {
     id = IdHashes.encode(System.currentTimeMillis() + new Random().nextInt());
+  }
+
+  private String getDefaultInterpreterName() {
+    Optional<InterpreterSetting> settingOptional = replLoader.getDefaultInterpreterSetting();
+    return settingOptional.isPresent() ? settingOptional.get().getName() : StringUtils.EMPTY;
+  }
+
+  void putDefaultReplName() {
+    String defaultInterpreterName = getDefaultInterpreterName();
+    logger.info("defaultInterpreterName is '{}'", defaultInterpreterName);
+    lastReplName.set(defaultInterpreterName);
   }
 
   public String id() {
@@ -117,7 +134,23 @@ public class Note implements Serializable, JobListener {
     return name;
   }
 
+  private String normalizeNoteName(String name){
+    name = name.trim();
+    name = name.replace("\\", "/");
+    while (name.indexOf("///") >= 0) {
+      name = name.replaceAll("///", "/");
+    }
+    name = name.replaceAll("//", "/");
+    if (name.length() == 0) {
+      name = "/";
+    }
+    return name;
+  }
+
   public void setName(String name) {
+    if (name.indexOf('/') >= 0 || name.indexOf('\\') >= 0) {
+      name = normalizeNoteName(name);
+    }
     this.name = name;
   }
 
@@ -149,6 +182,15 @@ public class Note implements Serializable, JobListener {
     this.index = index;
   }
 
+  public Credentials getCredentials() {
+    return credentials;
+  };
+
+  public void setCredentials(Credentials credentials) {
+    this.credentials = credentials;
+  }
+
+
   @SuppressWarnings("rawtypes")
   public Map<String, List<AngularObject>> getAngularObjects() {
     return angularObjects;
@@ -160,6 +202,7 @@ public class Note implements Serializable, JobListener {
 
   public Paragraph addParagraph() {
     Paragraph p = new Paragraph(this, this, replLoader);
+    addLastReplNameIfEmptyText(p);
     synchronized (paragraphs) {
       paragraphs.add(p);
     }
@@ -172,7 +215,9 @@ public class Note implements Serializable, JobListener {
    * @param srcParagraph
    */
   public void addCloneParagraph(Paragraph srcParagraph) {
-    Paragraph newParagraph = new Paragraph(this, this, replLoader);
+
+    // Keep paragraph original ID
+    final Paragraph newParagraph = new Paragraph(srcParagraph.getId(), this, this, replLoader);
 
     Map<String, Object> config = new HashMap<>(srcParagraph.getConfig());
     Map<String, Object> param = new HashMap<>(srcParagraph.settings.getParams());
@@ -201,10 +246,27 @@ public class Note implements Serializable, JobListener {
    */
   public Paragraph insertParagraph(int index) {
     Paragraph p = new Paragraph(this, this, replLoader);
+    addLastReplNameIfEmptyText(p);
     synchronized (paragraphs) {
       paragraphs.add(index, p);
     }
     return p;
+  }
+
+  /**
+   * Add Last Repl name If Paragraph has empty text
+   *
+   * @param p Paragraph
+   */
+  private void addLastReplNameIfEmptyText(Paragraph p) {
+    String replName = lastReplName.get();
+    if (StringUtils.isEmpty(p.getText()) && StringUtils.isNotEmpty(replName)) {
+      p.setText(getInterpreterName(replName) + " ");
+    }
+  }
+
+  private String getInterpreterName(String replName) {
+    return StringUtils.isBlank(replName) ? StringUtils.EMPTY : "%" + replName;
   }
 
   /**
@@ -353,19 +415,22 @@ public class Note implements Serializable, JobListener {
 
   /**
    * Run all paragraphs sequentially.
-   * @param cronExecutingUser
    */
-  public void runAll(String cronExecutingUser) {
+  public void runAll() {
+    String cronExecutingUser = (String) getConfig().get("cronExecutingUser");
     logger.info("Note: {} cronExecutingUser: {}", id, cronExecutingUser);
     if (cronExecutingUser == null || cronExecutingUser.equals("")) {
       logger.error("Cannot run all paragraphs. cronExecutingUser: " + cronExecutingUser);
       return;
     }
     synchronized (paragraphs) {
+      if (!paragraphs.isEmpty()) {
+        setLastReplName(paragraphs.get(paragraphs.size() - 1));
+      }
       for (Paragraph p : paragraphs) {
         String replName = p.getRequiredReplName();
         logger.info("Note: {} cronExecutingUser: {} paragraph: {} repl: {}",
-                id, cronExecutingUser, p.getId(), replName);
+            id, cronExecutingUser, p.getId(), replName);
         if (replName != null && replName.equals("scalding")) {
           logger.info("Scheduled scalding queries are disabled");
           continue;
@@ -373,10 +438,10 @@ public class Note implements Serializable, JobListener {
         if (!p.isEnabled()) {
           continue;
         }
-        p.setNoteReplLoader(replLoader);
         AuthenticationInfo authenticationInfo = new AuthenticationInfo();
         authenticationInfo.setUser(cronExecutingUser);
         p.setAuthenticationInfo(authenticationInfo);
+        p.setNoteReplLoader(replLoader);
         p.setListener(jobListenerFactory.getParagraphJobListener(this));
         Interpreter intp = replLoader.get(p.getRequiredReplName());
         intp.getScheduler().submit(p);
@@ -393,20 +458,46 @@ public class Note implements Serializable, JobListener {
     Paragraph p = getParagraph(paragraphId);
     p.setNoteReplLoader(replLoader);
     p.setListener(jobListenerFactory.getParagraphJobListener(this));
-    Interpreter intp = replLoader.get(p.getRequiredReplName());
+    String requiredReplName = p.getRequiredReplName();
+    Interpreter intp = replLoader.get(requiredReplName);
     if (intp == null) {
-      throw new InterpreterException("Interpreter " + p.getRequiredReplName() + " not found");
+      // TODO(jongyoul): Make "%jdbc" configurable from JdbcInterpreter
+      if (conf.getUseJdbcAlias() && null != (intp = replLoader.get("jdbc"))) {
+        String pText = p.getText().replaceFirst(requiredReplName, "jdbc(" + requiredReplName + ")");
+        logger.debug("New paragraph: {}", pText);
+        p.setEffectiveText(pText);
+      } else {
+        throw new InterpreterException("Interpreter " + requiredReplName + " not found");
+      }
     }
     if (p.getConfig().get("enabled") == null || (Boolean) p.getConfig().get("enabled")) {
       intp.getScheduler().submit(p);
     }
   }
 
-  public List<String> completion(String paragraphId, String buffer, int cursor) {
+  /**
+   * Check whether all paragraphs belongs to this note has terminated
+   * @return
+   */
+  public boolean isTerminated() {
+    synchronized (paragraphs) {
+      for (Paragraph p : paragraphs) {
+        if (!p.isTerminated()) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  public List<InterpreterCompletion> completion(String paragraphId, String buffer, int cursor) {
     Paragraph p = getParagraph(paragraphId);
     p.setNoteReplLoader(replLoader);
     p.setListener(jobListenerFactory.getParagraphJobListener(this));
-    return p.completion(buffer, cursor);
+    List completion = p.completion(buffer, cursor);
+
+    return completion;
   }
 
   public List<Paragraph> getParagraphs() {
@@ -424,7 +515,7 @@ public class Note implements Serializable, JobListener {
     }
 
     for (InterpreterSetting setting : settings) {
-      InterpreterGroup intpGroup = setting.getInterpreterGroup();
+      InterpreterGroup intpGroup = setting.getInterpreterGroup(id);
       AngularObjectRegistry registry = intpGroup.getAngularObjectRegistry();
       angularObjects.put(intpGroup.getId(), registry.getAllWithGlobal(id));
     }
@@ -439,7 +530,7 @@ public class Note implements Serializable, JobListener {
     }
 
     for (InterpreterSetting setting : settings) {
-      InterpreterGroup intpGroup = setting.getInterpreterGroup();
+      InterpreterGroup intpGroup = setting.getInterpreterGroup(id);
       AngularObjectRegistry registry = intpGroup.getAngularObjectRegistry();
 
       if (registry instanceof RemoteAngularObjectRegistry) {
@@ -451,27 +542,37 @@ public class Note implements Serializable, JobListener {
     }
   }
 
-  public void persist() throws IOException {
+  public void persist(AuthenticationInfo subject) throws IOException {
     stopDelayedPersistTimer();
     snapshotAngularObjectRegistry();
     index.updateIndexDoc(this);
-    repo.save(this);
+    repo.save(this, subject);
+  }
+
+  private void setLastReplName(Paragraph lastParagraphStarted) {
+    if (StringUtils.isNotEmpty(lastParagraphStarted.getRequiredReplName())) {
+      lastReplName.set(lastParagraphStarted.getRequiredReplName());
+    }
+  }
+
+  public void setLastReplName(String paragraphId) {
+    setLastReplName(getParagraph(paragraphId));
   }
 
   /**
    * Persist this note with maximum delay.
    * @param maxDelaySec
    */
-  public void persist(int maxDelaySec) {
-    startDelayedPersistTimer(maxDelaySec);
+  public void persist(int maxDelaySec, AuthenticationInfo subject) {
+    startDelayedPersistTimer(maxDelaySec, subject);
   }
 
-  public void unpersist() throws IOException {
-    repo.remove(id());
+  public void unpersist(AuthenticationInfo subject) throws IOException {
+    repo.remove(id(), subject);
   }
 
 
-  private void startDelayedPersistTimer(int maxDelaySec) {
+  private void startDelayedPersistTimer(int maxDelaySec, final AuthenticationInfo subject) {
     synchronized (this) {
       if (delayedPersist != null) {
         return;
@@ -482,7 +583,7 @@ public class Note implements Serializable, JobListener {
         @Override
         public void run() {
           try {
-            persist();
+            persist(subject);
           } catch (IOException e) {
             logger.error(e.getMessage(), e);
           }
@@ -523,6 +624,14 @@ public class Note implements Serializable, JobListener {
     this.info = info;
   }
 
+  public String getLastReplName() {
+    return lastReplName.get();
+  }
+
+  public String getLastInterpreterName() {
+    return getInterpreterName(getLastReplName());
+  }
+
   @Override
   public void beforeStatusChange(Job job, Status before, Status after) {
   }
@@ -533,5 +642,4 @@ public class Note implements Serializable, JobListener {
 
   @Override
   public void onProgressUpdate(Job job, int progress) {}
-
 }

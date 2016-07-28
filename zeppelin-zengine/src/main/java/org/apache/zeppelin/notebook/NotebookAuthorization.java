@@ -49,8 +49,7 @@ public class NotebookAuthorization {
     try {
       loadFromFile();
     } catch (IOException e) {
-      LOG.error("Error loading NotebookAuthorization");
-      e.printStackTrace();
+      LOG.error("Error loading NotebookAuthorization", e);
     }
   }
 
@@ -192,13 +191,13 @@ public class NotebookAuthorization {
   }
 
   public boolean isWriter(String noteId, Set<String> entities) {
-    return isMember(entities, getWriters(noteId)) || isOwner(noteId, entities);
+    return isMember(entities, getWriters(noteId)) || isMember(entities, getOwners(noteId));
   }
 
   public boolean isReader(String noteId, Set<String> entities) {
     return isMember(entities, getReaders(noteId)) ||
-            isOwner(noteId, entities) ||
-            isWriter(noteId, entities);
+            isMember(entities, getOwners(noteId)) ||
+            isMember(entities, getWriters(noteId));
   }
 
   // return true if b is empty or if (a intersection b) is non-empty

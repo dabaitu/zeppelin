@@ -22,21 +22,21 @@
   <parent>
     <artifactId>zeppelin</artifactId>
     <groupId>org.apache.zeppelin</groupId>
-    <version>0.6.0-incubating-SNAPSHOT</version>
+    <version>0.6.0-SNAPSHOT</version>
     <relativePath>..</relativePath>
   </parent>
 
   <groupId>org.apache.zeppelin</groupId>
   <artifactId>zeppelin-elasticsearch</artifactId>
   <packaging>jar</packaging>
-  <version>0.6.0-incubating-SNAPSHOT</version>
+  <version>0.6.0-SNAPSHOT</version>
   <name>Zeppelin: Elasticsearch interpreter</name>
   <url>http://www.apache.org</url>
 
   <properties>
     <elasticsearch.version>2.1.0</elasticsearch.version>
     <guava.version>18.0</guava.version>
-    <json-flattener.version>0.1.1</json-flattener.version>
+    <json-flattener.version>0.1.6</json-flattener.version>
   </properties>
 
   <dependencies>

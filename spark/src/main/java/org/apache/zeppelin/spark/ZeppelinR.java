@@ -24,6 +24,7 @@ import org.apache.zeppelin.interpreter.InterpreterOutput;
 import org.apache.zeppelin.interpreter.InterpreterOutputListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.io.*;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,8 +34,7 @@ import java.util.Map;
  * R repl interaction
  */
 public class ZeppelinR implements ExecuteResultHandler {
-  private static final Logger logger = LoggerFactory.getLogger(SparkRInterpreter.class);
-
+  Logger logger = LoggerFactory.getLogger(ZeppelinR.class);
   private final String rCmdPath;
   private DefaultExecutor executor;
   private SparkOutputStream outputStream;
@@ -161,8 +161,6 @@ public class ZeppelinR implements ExecuteResultHandler {
       }
     });
     outputStream.setInterpreterOutput(initialOutput);
-    logger.info("R cmd {}", cmd);
-    logger.info("R cmd env {}", env);
     executor.execute(cmd, env, this);
     rScriptRunning = true;
 

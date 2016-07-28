@@ -23,8 +23,10 @@ import org.apache.thrift.TException;
 import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.GUI;
+import org.apache.zeppelin.display.Input;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.InterpreterResult.Type;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterContext;
 import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterResult;
 import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterService.Client;
@@ -71,7 +73,7 @@ public class RemoteInterpreter extends Interpreter {
     this.interpreterRunner = interpreterRunner;
     this.interpreterPath = interpreterPath;
     this.localRepoPath = localRepoPath;
-    env = new HashMap<String, String>();
+    env = getEnvFromInterpreterProperty(property);
     this.connectTimeout = connectTimeout;
     this.maxPoolSize = maxPoolSize;
     this.remoteInterpreterProcessListener = remoteInterpreterProcessListener;
@@ -92,10 +94,29 @@ public class RemoteInterpreter extends Interpreter {
     this.interpreterRunner = interpreterRunner;
     this.interpreterPath = interpreterPath;
     this.localRepoPath = localRepoPath;
+    env.putAll(getEnvFromInterpreterProperty(property));
     this.env = env;
     this.connectTimeout = connectTimeout;
     this.maxPoolSize = 10;
     this.remoteInterpreterProcessListener = remoteInterpreterProcessListener;
+  }
+
+  private Map<String, String> getEnvFromInterpreterProperty(Properties property) {
+    Map<String, String> env = new HashMap<String, String>();
+    for (Object key : property.keySet()) {
+      if (isEnvString((String) key)) {
+        env.put((String) key, property.getProperty((String) key));
+      }
+    }
+    return env;
+  }
+
+  static boolean isEnvString(String key) {
+    if (key == null || key.length() == 0) {
+      return false;
+    }
+
+    return key.matches("^[A-Z_0-9]*");
   }
 
   @Override
@@ -158,9 +179,10 @@ public class RemoteInterpreter extends Interpreter {
         }
 
       } catch (TException e) {
-        broken = true;
+        logger.error("Failed to create interpreter: {}", getClassName());
         throw new InterpreterException(e);
       } finally {
+        // TODO(jongyoul): Fixed it when not all of interpreter in same interpreter group are broken
         interpreterProcess.releaseClient(client, broken);
       }
     }
@@ -176,12 +198,18 @@ public class RemoteInterpreter extends Interpreter {
     synchronized (interpreterGroup) {
       // initialize all interpreters in this interpreter group
       List<Interpreter> interpreters = interpreterGroup.get(noteId);
-      for (Interpreter intp : interpreters) {
+      for (Interpreter intp : new ArrayList<>(interpreters)) {
         Interpreter p = intp;
         while (p instanceof WrappedInterpreter) {
           p = ((WrappedInterpreter) p).getInnerInterpreter();
         }
-        ((RemoteInterpreter) p).init();
+        try {
+          ((RemoteInterpreter) p).init();
+        } catch (InterpreterException e) {
+          logger.error("Failed to initialize interpreter: {}. Remove it from interpreterGroup",
+              p.getClassName());
+          interpreters.remove(p);
+        }
       }
     }
   }
@@ -236,7 +264,8 @@ public class RemoteInterpreter extends Interpreter {
 
     boolean broken = false;
     try {
-      GUI settings = context.getGui();
+
+      final GUI currentGUI = context.getGui();
       RemoteInterpreterResult remoteResult = client.interpret(
           noteId, className, st, convert(context));
 
@@ -246,11 +275,20 @@ public class RemoteInterpreter extends Interpreter {
       context.getConfig().clear();
       context.getConfig().putAll(remoteConfig);
 
+
       if (form == FormType.NATIVE) {
         GUI remoteGui = gson.fromJson(remoteResult.getGui(), GUI.class);
-        context.getGui().clear();
-        context.getGui().setParams(remoteGui.getParams());
-        context.getGui().setForms(remoteGui.getForms());
+        currentGUI.clear();
+        currentGUI.setParams(remoteGui.getParams());
+        currentGUI.setForms(remoteGui.getForms());
+      } else if (form == FormType.SIMPLE) {
+        final Map<String, Input> currentForms = currentGUI.getForms();
+        final Map<String, Object> currentParams = currentGUI.getParams();
+        final GUI remoteGUI = gson.fromJson(remoteResult.getGui(), GUI.class);
+        final Map<String, Input> remoteForms = remoteGUI.getForms();
+        final Map<String, Object> remoteParams = remoteGUI.getParams();
+        currentForms.putAll(remoteForms);
+        currentParams.putAll(remoteParams);
       }
 
       InterpreterResult result = convert(remoteResult);
@@ -340,7 +378,7 @@ public class RemoteInterpreter extends Interpreter {
 
 
   @Override
-  public List<String> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor) {
     RemoteInterpreterProcess interpreterProcess = getInterpreterProcess();
     Client client = null;
     try {
@@ -351,7 +389,8 @@ public class RemoteInterpreter extends Interpreter {
 
     boolean broken = false;
     try {
-      return client.completion(noteId, className, buf, cursor);
+      List completion = client.completion(noteId, className, buf, cursor);
+      return completion;
     } catch (TException e) {
       broken = true;
       throw new InterpreterException(e);

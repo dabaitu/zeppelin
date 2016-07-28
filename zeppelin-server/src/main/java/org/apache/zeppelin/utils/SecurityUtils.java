@@ -19,6 +19,12 @@ package org.apache.zeppelin.utils;
 import com.google.common.collect.Sets;
 import org.apache.shiro.subject.Subject;
 import com.twitter.common_internal.elfowl.Cookie;
+import org.apache.shiro.realm.Realm;
+import org.apache.shiro.realm.text.IniRealm;
+import org.apache.shiro.util.ThreadContext;
+import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
+import org.apache.shiro.mgt.SecurityManager;
+import org.apache.shiro.config.IniSecurityManagerFactory;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 
 import javax.servlet.http.HttpServletRequest;
@@ -26,17 +32,22 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.Arrays;
-import java.util.HashSet;
+import java.util.*;
 
 /**
  * Tools for securing Zeppelin
  */
 public class SecurityUtils {
 
+  public static void initSecurityManager(String shiroPath) {
+    IniSecurityManagerFactory factory = new IniSecurityManagerFactory("file:" + shiroPath);
+    SecurityManager securityManager = factory.getInstance();
+    org.apache.shiro.SecurityUtils.setSecurityManager(securityManager);
+  }
+
   public static Boolean isValidOrigin(String sourceHost, ZeppelinConfiguration conf)
       throws UnknownHostException, URISyntaxException {
-    if (sourceHost == null || sourceHost.isEmpty()){
+    if (sourceHost == null || sourceHost.isEmpty()) {
       return false;
     }
     String sourceUriHost = new URI(sourceHost).getHost();
@@ -46,9 +57,9 @@ public class SecurityUtils {
     String currentHost = InetAddress.getLocalHost().getHostName().toLowerCase();
 
     return conf.getAllowedOrigins().contains("*") ||
-            currentHost.equals(sourceUriHost) ||
-            "localhost".equals(sourceUriHost) ||
-            conf.getAllowedOrigins().contains(sourceHost);
+        currentHost.equals(sourceUriHost) ||
+        "localhost".equals(sourceUriHost) ||
+        conf.getAllowedOrigins().contains(sourceHost);
   }
 
   public static Cookie extractCookie(HttpServletRequest request) {
@@ -75,8 +86,10 @@ public class SecurityUtils {
     return Sets.newHashSet(cookie.getGroups().iterator());
   }
 
+  
   /**
    * Return the authenticated user if any otherwise returns "anonymous"
+   *
    * @return shiro principal
    */
   public static String getPrincipal() {
@@ -85,26 +98,49 @@ public class SecurityUtils {
     String principal;
     if (subject.isAuthenticated()) {
       principal = subject.getPrincipal().toString();
-    }
-    else {
+    } else {
       principal = "anonymous";
     }
     return principal;
   }
 
+  public static Collection getRealmsList() {
+    DefaultWebSecurityManager defaultWebSecurityManager;
+    String key = ThreadContext.SECURITY_MANAGER_KEY;
+    defaultWebSecurityManager = (DefaultWebSecurityManager) ThreadContext.get(key);
+    Collection<Realm> realms = defaultWebSecurityManager.getRealms();
+    return realms;
+  }
+
   /**
    * Return the roles associated with the authenticated user if any otherwise returns empty set
    * TODO(prasadwagle) Find correct way to get user roles (see SHIRO-492)
+   *
    * @return shiro roles
    */
   public static HashSet<String> getRoles() {
     Subject subject = org.apache.shiro.SecurityUtils.getSubject();
     HashSet<String> roles = new HashSet<>();
+    Map allRoles = null;
 
     if (subject.isAuthenticated()) {
-      for (String role : Arrays.asList("role1", "role2", "role3")) {
-        if (subject.hasRole(role)) {
-          roles.add(role);
+      Collection realmsList = SecurityUtils.getRealmsList();
+      for (Iterator<Realm> iterator = realmsList.iterator(); iterator.hasNext(); ) {
+        Realm realm = iterator.next();
+        String name = realm.getName();
+        if (name.equals("iniRealm")) {
+          allRoles = ((IniRealm) realm).getIni().get("roles");
+          break;
+        }
+      }
+
+      if (allRoles != null) {
+        Iterator it = allRoles.entrySet().iterator();
+        while (it.hasNext()) {
+          Map.Entry pair = (Map.Entry) it.next();
+          if (subject.hasRole((String) pair.getKey())) {
+            roles.add((String) pair.getKey());
+          }
         }
       }
     }

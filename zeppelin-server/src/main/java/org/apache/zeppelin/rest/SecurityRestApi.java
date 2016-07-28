@@ -17,6 +17,12 @@
 
 package org.apache.zeppelin.rest;
 
+
+import org.apache.shiro.realm.Realm;
+import org.apache.shiro.realm.jdbc.JdbcRealm;
+import org.apache.shiro.realm.ldap.JndiLdapRealm;
+import org.apache.shiro.realm.text.IniRealm;
+import org.apache.zeppelin.annotation.ZeppelinApi;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
 import org.apache.zeppelin.server.JsonResponse;
 import org.apache.zeppelin.ticket.TicketContainer;
@@ -26,15 +32,13 @@ import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Response;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Zeppelin security rest api endpoint.
- *
  */
 @Path("/security")
 @Produces("application/json")
@@ -58,6 +62,7 @@ public class SecurityRestApi {
    */
   @GET
   @Path("ticket")
+  @ZeppelinApi
   public Response ticket() {
     ZeppelinConfiguration conf = ZeppelinConfiguration.create();
     String principal = SecurityUtils.getPrincipal();
@@ -79,4 +84,51 @@ public class SecurityRestApi {
     LOG.warn(response.toString());
     return response.build();
   }
+
+  /**
+   * Get userlist
+   * Returns list of all user from available realms
+   *
+   * @return 200 response
+   */
+  @GET
+  @Path("userlist/{searchText}")
+  public Response getUserList(@PathParam("searchText") String searchText) {
+
+    List<String> usersList = new ArrayList<>();
+    try {
+      GetUserList getUserListObj = new GetUserList();
+      Collection realmsList = SecurityUtils.getRealmsList();
+      for (Iterator<Realm> iterator = realmsList.iterator(); iterator.hasNext(); ) {
+        Realm realm = iterator.next();
+        String name = realm.getName();
+        if (name.equals("iniRealm")) {
+          usersList.addAll(getUserListObj.getUserList((IniRealm) realm));
+        } else if (name.equals("ldapRealm")) {
+          usersList.addAll(getUserListObj.getUserList((JndiLdapRealm) realm));
+        } else if (name.equals("jdbcRealm")) {
+          usersList.addAll(getUserListObj.getUserList((JdbcRealm) realm));
+        }
+      }
+
+    } catch (Exception e) {
+      LOG.error("Exception in retrieving Users from realms ", e);
+    }
+    List<String> autoSuggestList = new ArrayList<>();
+    Collections.sort(usersList);
+    int maxLength = 0;
+    for (int i = 0; i < usersList.size(); i++) {
+      String userLowerCase = usersList.get(i).toLowerCase();
+      String searchTextLowerCase = searchText.toLowerCase();
+      if (userLowerCase.indexOf(searchTextLowerCase) != -1) {
+        maxLength++;
+        autoSuggestList.add(usersList.get(i));
+      }
+      if (maxLength == 5) {
+        break;
+      }
+    }
+    return new JsonResponse<>(Response.Status.OK, "", autoSuggestList).build();
+  }
+
 }

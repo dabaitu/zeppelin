@@ -17,11 +17,6 @@
 
 package org.apache.zeppelin.interpreter;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-
 import java.io.*;
 import java.util.LinkedList;
 import java.util.List;
@@ -38,6 +33,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.sonatype.aether.RepositoryException;
+
+import static org.junit.Assert.*;
 
 public class InterpreterFactoryTest {
 
@@ -87,21 +84,18 @@ public class InterpreterFactoryTest {
   public void testBasic() {
     List<String> all = factory.getDefaultInterpreterSettingList();
     InterpreterSetting setting = factory.get(all.get(0));
-    InterpreterGroup interpreterGroup = setting.getInterpreterGroup();
-    factory.createInterpretersForNote(setting, "session");
+    InterpreterGroup interpreterGroup = setting.getInterpreterGroup("sharedProcess");
+    factory.createInterpretersForNote(setting, "sharedProcess", "session");
 
     // get interpreter
-    Interpreter repl1 = interpreterGroup.get("session").get(0);
-    assertFalse(((LazyOpenInterpreter) repl1).isOpen());
-    repl1.interpret("repl1", context);
-    assertTrue(((LazyOpenInterpreter) repl1).isOpen());
+    assertNotNull("get Interpreter", interpreterGroup.get("session").get(0));
 
     // try to get unavailable interpreter
     assertNull(factory.get("unknown"));
 
     // restart interpreter
     factory.restart(all.get(0));
-    assertNull(setting.getInterpreterGroup().get("session"));
+    assertNull(setting.getInterpreterGroup("sharedProcess").get("session"));
   }
 
   @Test

@@ -24,6 +24,7 @@ import org.apache.zeppelin.interpreter.InterpreterContext;
 import org.apache.zeppelin.interpreter.InterpreterPropertyBuilder;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.scheduler.SchedulerFactory;
 import org.slf4j.Logger;
@@ -49,10 +50,12 @@ public class ScaldingInterpreter extends Interpreter {
   Logger logger = LoggerFactory.getLogger(ScaldingInterpreter.class);
 
   static final String ARGS_STRING = "args.string";
+  static final String ARGS_STRING_DEFAULT = "--local --repl";
   static final String MAX_OPEN_INSTANCES = "max.open.instances";
+  static final String MAX_OPEN_INSTANCES_DEFAULT = "50";
 
-  public static final List<String> NO_COMPLETION = 
-    Collections.unmodifiableList(new ArrayList<String>());
+  public static final List NO_COMPLETION =
+    Collections.unmodifiableList(new ArrayList<>());
 
   static {
     Interpreter.register(
@@ -60,8 +63,9 @@ public class ScaldingInterpreter extends Interpreter {
       "scalding",
       ScaldingInterpreter.class.getName(),
       new InterpreterPropertyBuilder()
-        .add(ARGS_STRING, "--local --repl", "Arguments for scalding REPL")
-        .add(MAX_OPEN_INSTANCES, "50", "Maximum number of open interpreter instances")
+        .add(ARGS_STRING, ARGS_STRING_DEFAULT, "Arguments for scalding REPL")
+        .add(MAX_OPEN_INSTANCES, MAX_OPEN_INSTANCES_DEFAULT,
+                "Maximum number of open interpreter instances")
         .build());
   }
 
@@ -77,7 +81,8 @@ public class ScaldingInterpreter extends Interpreter {
   @Override
   public void open() {
     numOpenInstances = numOpenInstances + 1;
-    String maxOpenInstancesStr = property.getProperty(MAX_OPEN_INSTANCES);
+    String maxOpenInstancesStr = property.getProperty(MAX_OPEN_INSTANCES,
+            MAX_OPEN_INSTANCES_DEFAULT);
     int maxOpenInstances = 50;
     try {
       maxOpenInstances = Integer.valueOf(maxOpenInstancesStr);
@@ -91,7 +96,7 @@ public class ScaldingInterpreter extends Interpreter {
     }
     logger.info("Opening instance {}", numOpenInstances);
     logger.info("property: {}", property);
-    String argsString = property.getProperty(ARGS_STRING);
+    String argsString = property.getProperty(ARGS_STRING, ARGS_STRING_DEFAULT);
     String[] args;
     if (argsString == null) {
       args = new String[0];
@@ -116,14 +121,14 @@ public class ScaldingInterpreter extends Interpreter {
     String user = contextInterpreter.getAuthenticationInfo().getUser();
     logger.info("Running scalding command: user: {} cmd: '{}'", user, origCmd);
     String cmd = "ZeppelinReplState.customConfig += (\"hadoop.tmp.dir\", \"/tmp/hadoop-"
-            + user + "\")\n" + origCmd;
+        + user + "\")\n" + origCmd;
     logger.info("Running modified scalding command: user: {} cmd: '{}'", user, cmd);
+
     if (cmd.contains("java.io")
             || cmd.contains("java.nio")
             || cmd.contains("Runtime")
             || cmd.contains("scala.io")
-            || cmd.contains("sys.process")
-    ) {
+            || cmd.contains("sys.process")) {
       logger.error(
               "code contains commands that are not allowed for security reasons");
       return new InterpreterResult(Code.ERROR,
@@ -153,11 +158,17 @@ public class ScaldingInterpreter extends Interpreter {
         return new InterpreterResult(Code.ERROR, e.getMessage());
       }
       try {
-        interpreterResult = ugi.doAs(new PrivilegedExceptionAction<InterpreterResult>() {
-          public InterpreterResult run() throws Exception {
-            return interpret(cmd.split("\n"), contextInterpreter);
-          }
-        });
+        // Make variables final to avoid "local variable is accessed from within inner class;
+        // needs to be declared final" exception in JDK7
+        final String cmd1 = cmd;
+        final InterpreterContext contextInterpreter1 = contextInterpreter;
+        PrivilegedExceptionAction<InterpreterResult> action =
+          new PrivilegedExceptionAction<InterpreterResult>() {
+            public InterpreterResult run() throws Exception {
+              return interpret(cmd1.split("\n"), contextInterpreter1);
+            }
+          };
+        interpreterResult = ugi.doAs(action);
       } catch (Exception e) {
         logger.error("Error running command with ugi.doAs", e);
         return new InterpreterResult(Code.ERROR, e.getMessage());
@@ -287,7 +298,7 @@ public class ScaldingInterpreter extends Interpreter {
   }
 
   @Override
-  public List<String> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor) {
     return NO_COMPLETION;
   }
 

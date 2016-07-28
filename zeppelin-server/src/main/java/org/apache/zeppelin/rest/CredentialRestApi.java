@@ -19,9 +19,9 @@ package org.apache.zeppelin.rest;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import org.apache.zeppelin.credential.Credentials;
-import org.apache.zeppelin.credential.UserCredentials;
-import org.apache.zeppelin.credential.UsernamePassword;
+import org.apache.zeppelin.user.Credentials;
+import org.apache.zeppelin.user.UserCredentials;
+import org.apache.zeppelin.user.UsernamePassword;
 import org.apache.zeppelin.server.JsonResponse;
 import org.apache.zeppelin.utils.SecurityUtils;
 import org.slf4j.Logger;
@@ -50,7 +50,11 @@ public class CredentialRestApi {
   private HttpServletRequest servReq;
 
   public CredentialRestApi() {
-    this.credentials = Credentials.getCredentials();
+
+  }
+
+  public CredentialRestApi(Credentials credentials) {
+    this.credentials = credentials;
   }
 
   /**
@@ -59,14 +63,19 @@ public class CredentialRestApi {
   @PUT
   public Response putCredentials(String message) throws IOException {
     Map<String, String> messageMap = gson.fromJson(message,
-            new TypeToken<Map<String, String>>(){}.getType());
-    String datasource = messageMap.get("datasource");
+      new TypeToken<Map<String, String>>(){}.getType());
+    String entity = messageMap.get("entity");
     String username = messageMap.get("username");
     String password = messageMap.get("password");
+
+    if (entity == null || username == null || password == null) {
+      return new JsonResponse(Status.BAD_REQUEST, "", "").build();
+    }
+
     String user = SecurityUtils.getUser(servReq);
-    logger.info("Update credentials for user {} datasource {}", user, datasource);
+    logger.info("Update credentials for user {} entity {}", user, entity);
     UserCredentials uc = credentials.getUserCredentials(user);
-    uc.putUsernamePassword(datasource, new UsernamePassword(username, password));
+    uc.putUsernamePassword(entity, new UsernamePassword(username, password));
     credentials.putUserCredentials(user, uc);
     return new JsonResponse(Status.OK, "", "").build();
   }

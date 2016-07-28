@@ -17,12 +17,13 @@
 
 package org.apache.zeppelin.notebook;
 
-import org.apache.zeppelin.credential.Credentials;
 import org.apache.zeppelin.display.AngularObject;
-import org.apache.zeppelin.credential.UserCredentials;
-import org.apache.zeppelin.credential.UsernamePassword;
 import org.apache.zeppelin.display.AngularObjectRegistry;
+import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.user.AuthenticationInfo;
+import org.apache.zeppelin.user.Credentials;
+import org.apache.zeppelin.user.UserCredentials;
+import org.apache.zeppelin.user.UsernamePassword;
 import org.apache.zeppelin.display.GUI;
 import org.apache.zeppelin.display.Input;
 import org.apache.zeppelin.interpreter.*;
@@ -50,11 +51,12 @@ public class Paragraph extends Job implements Serializable, Cloneable {
 
   private transient NoteInterpreterLoader replLoader;
   private transient Note note;
+  private transient AuthenticationInfo authenticationInfo;
+  private transient String effectiveText;
 
   String title;
   String text;
-  String executingUser;
-  private transient AuthenticationInfo authenticationInfo;
+  String user;
   Date dateUpdated;
   private Map<String, Object> config; // paragraph configs like isOpen, colWidth, etc
   public final GUI settings;          // form and parameter settings
@@ -66,13 +68,26 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     settings = new GUI();
   }
 
+  public Paragraph(String paragraphId, Note note, JobListener listener,
+                   NoteInterpreterLoader replLoader) {
+    super(paragraphId, generateId(), listener);
+    this.note = note;
+    this.replLoader = replLoader;
+    title = null;
+    text = null;
+    authenticationInfo = null;
+    user = null;
+    dateUpdated = null;
+    settings = new GUI();
+    config = new HashMap<String, Object>();
+  }
+
   public Paragraph(Note note, JobListener listener, NoteInterpreterLoader replLoader) {
     super(generateId(), listener);
     this.note = note;
     this.replLoader = replLoader;
     title = null;
     text = null;
-    executingUser = null;
     authenticationInfo = null;
     dateUpdated = null;
     settings = new GUI();
@@ -93,13 +108,21 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     this.dateUpdated = new Date();
   }
 
+  public void setEffectiveText(String effectiveText) {
+    this.effectiveText = effectiveText;
+  }
+
+  public String getEffectiveText() {
+    return effectiveText;
+  }
+
   public AuthenticationInfo getAuthenticationInfo() {
     return authenticationInfo;
   }
 
   public void setAuthenticationInfo(AuthenticationInfo authenticationInfo) {
     this.authenticationInfo = authenticationInfo;
-    this.executingUser = authenticationInfo.getUser();
+    this.user = authenticationInfo.getUser();
   }
 
   public String getTitle() {
@@ -124,7 +147,55 @@ public class Paragraph extends Job implements Serializable, Cloneable {
   }
 
   public String getRequiredReplName() {
-    return getRequiredReplName(text);
+    return getRequiredReplName(null != effectiveText ? effectiveText : text);
+  }
+
+  public static String getRequiredReplName(String text) {
+    if (text == null) {
+      return null;
+    }
+
+    // get script head
+    int scriptHeadIndex = 0;
+    for (int i = 0; i < text.length(); i++) {
+      char ch = text.charAt(i);
+      if (Character.isWhitespace(ch) || ch == '(') {
+        scriptHeadIndex = i;
+        break;
+      }
+    }
+    if (scriptHeadIndex == 0) {
+      return null;
+    }
+    String head = text.substring(0, scriptHeadIndex);
+    if (head.startsWith("%")) {
+      return head.substring(1);
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the property key of the specific data source
+   * e.g. getDataSourceKey("%hive(vertica-smf1)") -> "vertica-smf1"
+   * @param cmd
+   * @return property key of data source being queried
+   */
+  public static String getDataSourceKey(String cmd) {
+    if (cmd == null) {
+      return null;
+    }
+    int firstLineIndex = cmd.indexOf("\n");
+    if (-1 == firstLineIndex) {
+      firstLineIndex = cmd.length();
+    }
+    int configStartIndex = cmd.indexOf("(");
+    int configLastIndex = cmd.indexOf(")");
+    if (configStartIndex != -1 && configLastIndex != -1
+        && configLastIndex < firstLineIndex && configLastIndex < firstLineIndex) {
+      return cmd.substring(configStartIndex + 1, configLastIndex);
+    }
+    return null;
   }
 
   public static String getExtendedRequiredReplName(String text) {
@@ -152,33 +223,8 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     }
   }
 
-  public static String getRequiredReplName(String text) {
-    if (text == null) {
-      return null;
-    }
-
-    // get script head
-    int scriptHeadIndex = 0;
-    for (int i = 0; i < text.length(); i++) {
-      char ch = text.charAt(i);
-      if (ch == ' ' || ch == '\n' || ch == '(') {
-        scriptHeadIndex = i;
-        break;
-      }
-    }
-    if (scriptHeadIndex == 0) {
-      return null;
-    }
-    String head = text.substring(0, scriptHeadIndex);
-    if (head.startsWith("%")) {
-      return head.substring(1);
-    } else {
-      return null;
-    }
-  }
-
-  private String getScriptBody() {
-    return getScriptBody(text);
+  public String getScriptBody() {
+    return getScriptBody(null != effectiveText ? effectiveText : text);
   }
 
   public static String getScriptBody(String text) {
@@ -208,7 +254,7 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     return getRepl(getRequiredReplName());
   }
 
-  public List<String> completion(String buffer, int cursor) {
+  public List<InterpreterCompletion> completion(String buffer, int cursor) {
     String replName = getRequiredReplName(buffer);
     if (replName != null) {
       cursor -= replName.length() + 1;
@@ -219,7 +265,8 @@ public class Paragraph extends Job implements Serializable, Cloneable {
       return null;
     }
 
-    return repl.completion(body, cursor);
+    List completion = repl.completion(body, cursor);
+    return completion;
   }
 
   public void setNoteReplLoader(NoteInterpreterLoader repls) {
@@ -273,18 +320,11 @@ public class Paragraph extends Job implements Serializable, Cloneable {
       settings.setForms(inputs);
       script = Input.getSimpleQuery(settings.getParams(), scriptBody);
     }
-    logger().debug("RUN : " + script);
+    logger().info("RUN : " + script);
     try {
       InterpreterContext context = getInterpreterContext();
-      String dataSourceKey = getDataSourceKey(getScriptBody());
-      if (context.getAuthenticationInfo().getPassword() == null) {
-        logger().info("Password for user {} missing for data source {}",
-                context.getAuthenticationInfo().getUser(), dataSourceKey);
-      }
       InterpreterContext.set(context);
       InterpreterResult ret = repl.interpret(script, context);
-      logger().info("Interpreter context: Executing User: " +
-              context.getAuthenticationInfo().getUser());
 
       if (Code.KEEP_PREVIOUS_RESULT == ret.code()) {
         return getReturn();
@@ -314,6 +354,7 @@ public class Paragraph extends Job implements Serializable, Cloneable {
       }
     } finally {
       InterpreterContext.remove();
+      effectiveText = null;
     }
   }
 
@@ -339,44 +380,14 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     return true;
   }
 
-  /**
-   * Returns the property key of the specific data source
-   * e.g. getDataSourceKey("%hive(vertica-smf1)") -> "vertica-smf1"
-   * @param cmd
-   * @return property key of data source being queried
-   */
-  public static String getDataSourceKey(String cmd) {
-    if (cmd == null) {
-      return null;
-    }
-    int firstLineIndex = cmd.indexOf("\n");
-    if (-1 == firstLineIndex) {
-      firstLineIndex = cmd.length();
-    }
-    int configStartIndex = cmd.indexOf("(");
-    int configLastIndex = cmd.indexOf(")");
-    if (configStartIndex != -1 && configLastIndex != -1
-        && configLastIndex < firstLineIndex && configLastIndex < firstLineIndex) {
-      return cmd.substring(configStartIndex + 1, configLastIndex);
-    }
-    return null;
-  }
-
   private InterpreterContext getInterpreterContext() {
     AngularObjectRegistry registry = null;
     ResourcePool resourcePool = null;
-    Credentials credentials = Credentials.getCredentials();
-    String dataSourceKey = null;
-    try {
-      dataSourceKey = getDataSourceKey(getScriptBody());
-    } catch (NullPointerException e) {
-      logger().info("NPE at dataSourceKey({}). cmd = {}", dataSourceKey, getScriptBody());
-    }
 
     if (!getNoteReplLoader().getInterpreterSettings().isEmpty()) {
       InterpreterSetting intpGroup = getNoteReplLoader().getInterpreterSettings().get(0);
-      registry = intpGroup.getInterpreterGroup().getAngularObjectRegistry();
-      resourcePool = intpGroup.getInterpreterGroup().getResourcePool();
+      registry = intpGroup.getInterpreterGroup(note.id()).getAngularObjectRegistry();
+      resourcePool = intpGroup.getInterpreterGroup(note.id()).getResourcePool();
     }
 
     List<InterpreterContextRunner> runners = new LinkedList<InterpreterContextRunner>();
@@ -385,14 +396,12 @@ public class Paragraph extends Job implements Serializable, Cloneable {
     }
 
     final Paragraph self = this;
-    UserCredentials userCredentials = credentials.getUserCredentials(authenticationInfo.getUser());
-    if (userCredentials != null) {
-      UsernamePassword userPassword = userCredentials.getUsernamePassword(dataSourceKey);
-      if (userPassword != null) {
-        executingUser = userPassword.getUsername();
-        authenticationInfo.setUser(userPassword.getUsername());
-        authenticationInfo.setPassword(userPassword.getPassword());
-      }
+
+    Credentials credentials = note.getCredentials();
+    if (authenticationInfo != null) {
+      UserCredentials userCredentials = credentials.getUserCredentials(
+              authenticationInfo.getUser());
+      authenticationInfo.setUserCredentials(userCredentials);
     }
 
     InterpreterContext interpreterContext = new InterpreterContext(

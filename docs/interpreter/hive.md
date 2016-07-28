@@ -9,6 +9,51 @@ group: manual
 ## Hive Interpreter for Apache Zeppelin
 The [Apache Hive](https://hive.apache.org/) ™ data warehouse software facilitates querying and managing large datasets residing in distributed storage. Hive provides a mechanism to project structure onto this data and query the data using a SQL-like language called HiveQL. At the same time this language also allows traditional map/reduce programmers to plug in their custom mappers and reducers when it is inconvenient or inefficient to express this logic in HiveQL.
 
+## Important Notice
+Hive Interpreter will be deprecated and merged into JDBC Interpreter. You can use Hive Interpreter by using JDBC Interpreter with same functionality. See the example below of settings and dependencies.
+
+### Properties
+<table class="table-configuration">
+  <tr>
+    <th>Property</th>
+    <th>Value</th>
+  </tr>
+  <tr>
+    <td>hive.driver</td>
+    <td>org.apache.hive.jdbc.HiveDriver</td>
+  </tr>
+  <tr>
+    <td>hive.url</td>
+    <td>jdbc:hive2://localhost:10000</td>
+  </tr>
+  <tr>
+    <td>hive.user</td>
+    <td>hiveUser</td>
+  </tr>
+  <tr>
+    <td>hive.password</td>
+    <td>hivePassword</td>
+  </tr>
+</table>
+
+### Dependencies
+<table class="table-configuration">
+  <tr>
+    <th>Artifact</th>
+    <th>Exclude</th>
+  </tr>
+  <tr>
+    <td>org.apache.hive:hive-jdbc:0.14.0</td>
+    <td></td>
+  </tr>
+  <tr>
+    <td>org.apache.hadoop:hadoop-common:2.6.0</td>
+    <td></td>
+  </tr>
+</table>
+
+----
+
 ### Configuration
 <table class="table-configuration">
   <tr>
@@ -44,7 +89,7 @@ The [Apache Hive](https://hive.apache.org/) ™ data warehouse software facilita
   <tr>
     <td>${prefix}.driver</td>
     <td></td>
-    <td>Driver class path of <code>%hive(${prefix})</code> </td> 
+    <td>Driver class path of <code>%hive(${prefix})</code> </td>
   </tr>
   <tr>
     <td>${prefix}.url</td>
@@ -93,9 +138,9 @@ You can leverage [Zeppelin Dynamic Form]({{BASE_PATH}}/manual/dynamicform.html) 
 
 ```sql
 %hive
-SELECT ${group_by}, count(*) as count 
-FROM retail_demo.order_lineitems_pxf 
-GROUP BY ${group_by=product_id,product_id|product_name|customer_id|store_id} 
-ORDER BY count ${order=DESC,DESC|ASC} 
+SELECT ${group_by}, count(*) as count
+FROM retail_demo.order_lineitems_pxf
+GROUP BY ${group_by=product_id,product_id|product_name|customer_id|store_id}
+ORDER BY count ${order=DESC,DESC|ASC}
 LIMIT ${limit=10};
 ```

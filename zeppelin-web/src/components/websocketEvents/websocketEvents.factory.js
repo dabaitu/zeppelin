@@ -65,6 +65,12 @@ angular.module('zeppelinWebApp').factory('websocketEvents', function($rootScope,
         title: 'Insufficient privileges',
         message: data.info.toString()
       });
+    } else if (op === 'UNSUPPORTED_INTERPRETER') {
+      BootstrapDialog.alert({
+        closable: true,
+        title: 'Unsupported Interpreter',
+        message: data.info.toString()
+      });
     } else if (op === 'PARAGRAPH') {
       $rootScope.$broadcast('updateParagraph', data);
     } else if (op === 'PARAGRAPH_APPEND_OUTPUT') {

@@ -32,10 +32,7 @@ import org.apache.thrift.transport.TTransportException;
 import org.apache.zeppelin.display.*;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
-import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterContext;
-import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterEvent;
-import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterResult;
-import org.apache.zeppelin.interpreter.thrift.RemoteInterpreterService;
+import org.apache.zeppelin.interpreter.thrift.*;
 import org.apache.zeppelin.resource.*;
 import org.apache.zeppelin.scheduler.Job;
 import org.apache.zeppelin.scheduler.Job.Status;
@@ -151,12 +148,12 @@ public class RemoteInterpreterServer
       Class<Interpreter> replClass = (Class<Interpreter>) Object.class.forName(className);
       Properties p = new Properties();
       p.putAll(properties);
+      setSystemProperty(p);
 
       Constructor<Interpreter> constructor =
           replClass.getConstructor(new Class[] {Properties.class});
       Interpreter repl = constructor.newInstance(p);
 
-      ClassLoader cl = ClassLoader.getSystemClassLoader();
       repl.setClassloaderUrls(new URL[]{});
 
       synchronized (interpreterGroup) {
@@ -166,7 +163,7 @@ public class RemoteInterpreterServer
           interpreterGroup.put(noteId, interpreters);
         }
 
-        interpreters.add(new LazyOpenInterpreter(new ClassloaderInterpreter(repl, cl)));
+        interpreters.add(new LazyOpenInterpreter(repl));
       }
 
       logger.info("Instantiate interpreter interpreterGroupId: {} noteId: {} className: {}",
@@ -177,6 +174,19 @@ public class RemoteInterpreterServer
         | IllegalArgumentException | InvocationTargetException e) {
       logger.error(e.toString(), e);
       throw new TException(e);
+    }
+  }
+
+  private void setSystemProperty(Properties properties) {
+    for (Object key : properties.keySet()) {
+      if (!RemoteInterpreter.isEnvString((String) key)) {
+        String value = properties.getProperty((String) key);
+        if (value == null || value.isEmpty()) {
+          System.clearProperty((String) key);
+        } else {
+          System.setProperty((String) key, properties.getProperty((String) key));
+        }
+      }
     }
   }
 
@@ -237,7 +247,8 @@ public class RemoteInterpreterServer
     InterpretJobListener jobListener = new InterpretJobListener();
     InterpretJob job = new InterpretJob(
         interpreterContext.getParagraphId(),
-        "remoteInterpretJob_" + System.currentTimeMillis(),
+        "remoteInterpretJob_" + System.currentTimeMillis() +
+            "_paragraph_" + interpreterContext.getParagraphId(),
         jobListener,
         JobProgressPoller.DEFAULT_INTERVAL_MSEC,
         intp,
@@ -403,10 +414,12 @@ public class RemoteInterpreterServer
   }
 
   @Override
-  public List<String> completion(String noteId, String className, String buf, int cursor)
+  public List<InterpreterCompletion> completion(String noteId,
+      String className, String buf, int cursor)
       throws TException {
     Interpreter intp = getInterpreter(noteId, className);
-    return intp.completion(buf, cursor);
+    List completion = intp.completion(buf, cursor);
+    return completion;
   }
 
   private InterpreterContext convert(RemoteInterpreterContext ric) {

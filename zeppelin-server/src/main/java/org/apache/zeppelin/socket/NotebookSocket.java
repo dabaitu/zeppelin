@@ -16,32 +16,29 @@
  */
 package org.apache.zeppelin.socket;
 
-import java.io.IOException;
-import java.util.HashSet;
-
-import javax.servlet.http.HttpServletRequest;
-
-import com.google.common.collect.Sets;
-import com.twitter.common_internal.elfowl.Cookie;
 import org.apache.zeppelin.utils.SecurityUtils;
-import org.eclipse.jetty.websocket.WebSocket;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WebSocketAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.util.HashSet;
 
 /**
  * Notebook websocket
  */
-public class NotebookSocket implements WebSocket.OnTextMessage{
+public class NotebookSocket extends WebSocketAdapter {
   private static final Logger LOG = LoggerFactory.getLogger(NotebookServer.class);
 
-  private Connection connection;
+  private Session connection;
   private NotebookSocketListener listener;
   private HttpServletRequest request;
   private String protocol;
   private String user;
   private HashSet<String> groups;
   private HashSet<String> userAndGroups;
-
   public NotebookSocket(HttpServletRequest req, String protocol,
       NotebookSocketListener listener) {
     this.listener = listener;
@@ -55,22 +52,22 @@ public class NotebookSocket implements WebSocket.OnTextMessage{
   }
 
   @Override
-  public void onClose(int closeCode, String message) {
+  public void onWebSocketClose(int closeCode, String message) {
     listener.onClose(this, closeCode, message);
   }
 
   @Override
-  public void onOpen(Connection connection) {
+  public void onWebSocketConnect(Session connection) {
     this.connection = connection;
     listener.onOpen(this);
   }
 
   @Override
-  public void onMessage(String message) {
+  public void onWebSocketText(String message) {
     listener.onMessage(this, message);
   }
-  
-  
+
+
   public HttpServletRequest getRequest() {
     return request;
   }
@@ -86,8 +83,7 @@ public class NotebookSocket implements WebSocket.OnTextMessage{
   public HashSet<String> getUserAndGroups() { return userAndGroups; }
 
   public void send(String serializeMessage) throws IOException {
-    connection.sendMessage(serializeMessage);
+    connection.getRemote().sendString(serializeMessage, null);
   }
 
-  
 }

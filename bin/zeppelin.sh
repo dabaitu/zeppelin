@@ -83,8 +83,8 @@ if [[ ! -d "${ZEPPELIN_PID_DIR}" ]]; then
 fi
 
 if [[ ! -d "${ZEPPELIN_NOTEBOOK_DIR}" ]]; then
-  echo "Notebook dir doesn't exist, create ${ZEPPELIN_NOTEBOOK_DIR}"
+  echo "Pid dir doesn't exist, create ${ZEPPELIN_NOTEBOOK_DIR}"
   $(mkdir -p "${ZEPPELIN_NOTEBOOK_DIR}")
 fi
 
-$ZEPPELIN_RUNNER $JAVA_OPTS -cp $ZEPPELIN_CLASSPATH_OVERRIDES:$CLASSPATH $ZEPPELIN_SERVER "$@"
+exec $ZEPPELIN_RUNNER $JAVA_OPTS -cp $ZEPPELIN_CLASSPATH_OVERRIDES:$CLASSPATH $ZEPPELIN_SERVER "$@"

@@ -27,6 +27,7 @@ import org.apache.zeppelin.display.AngularObject;
 import org.apache.zeppelin.display.AngularObjectBuilder;
 import org.apache.zeppelin.display.AngularObjectRegistry;
 import org.apache.zeppelin.display.Input;
+import org.apache.zeppelin.interpreter.Interpreter;
 import org.junit.Test;
 
 import java.util.HashMap;
@@ -41,10 +42,56 @@ public class ParagraphTest {
     text = "%table 1234567";
     assertEquals("1234567", Paragraph.getScriptBody(text));
   }
+
   @Test
   public void scriptBodyWithoutReplName() {
     String text = "12345678";
     assertEquals(text, Paragraph.getScriptBody(text));
+  }
+
+  @Test
+  public void replNameEndsWithWhitespace() {
+    String text = "%md\r\n###Hello";
+    assertEquals("md", Paragraph.getRequiredReplName(text));
+
+    text = "%md\t###Hello";
+    assertEquals("md", Paragraph.getRequiredReplName(text));
+
+    text = "%md\u000b###Hello";
+    assertEquals("md", Paragraph.getRequiredReplName(text));
+
+    text = "%md\f###Hello";
+    assertEquals("md", Paragraph.getRequiredReplName(text));
+
+    text = "%md\n###Hello";
+    assertEquals("md", Paragraph.getRequiredReplName(text));
+
+    text = "%md ###Hello";
+    assertEquals("md", Paragraph.getRequiredReplName(text));
+  }
+
+  @Test
+  public void effectiveTextTest() {
+    NoteInterpreterLoader noteInterpreterLoader = mock(NoteInterpreterLoader.class);
+    Interpreter interpreter = mock(Interpreter.class);
+
+    Paragraph p = new Paragraph(null, null, null, noteInterpreterLoader);
+    p.setText("%h2 show databases");
+    p.setEffectiveText("%jdbc(h2) show databases");
+    assertEquals("Get right replName", "jdbc", p.getRequiredReplName());
+    assertEquals("Get right scriptBody", "(h2) show databases", p.getScriptBody());
+
+    when(noteInterpreterLoader.get("jdbc")).thenReturn(interpreter);
+    when(interpreter.getFormType()).thenReturn(Interpreter.FormType.NATIVE);
+
+    try {
+      p.jobRun();
+    } catch (Throwable throwable) {
+      // Do nothing
+    }
+
+    assertEquals("Erase effective Text", "h2", p.getRequiredReplName());
+    assertEquals("Erase effective Text", "show databases", p.getScriptBody());
   }
 
   @Test
