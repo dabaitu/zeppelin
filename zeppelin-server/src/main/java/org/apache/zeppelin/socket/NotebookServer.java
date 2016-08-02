@@ -609,6 +609,41 @@ public class NotebookServer extends WebSocketServlet implements
       String prevExecutingUser = (String) note.getConfig().get("cronExecutingUser");
       String executingUser = (String) config.get("cronExecutingUser");
 
+      String cronExpr = (String) config.get("cron");
+      LOG.info("Cron expression: {}", cronExpr);
+      if (cronExpr != null && cronExpr.trim().length() != 0) {
+        String[] arr = cronExpr.split("\\s+");
+        LOG.info("length: {} arr: {}", arr.length, Arrays.toString(arr));
+        if (!(arr.length == 6 || arr.length == 7)) {
+          LOG.info(
+            "A cron expression is a string comprised of 6 or 7 fields separated by white space");
+          conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
+            "A cron expression is a string comprised of 6 or 7 fields separated by white space"
+                + "\n"
+                + "Updates were not saved" + "\n"
+                + "Reload the page in browser to see note cron settings on the server" + "\n"
+                + "\n"
+                + "Support contact: zeppelin-users@twitter.com or zeppelin hipchat"
+          )));
+          return;
+        }
+        LOG.info("{} {}", arr[0], arr[1]);
+        if ((arr[0].matches(".*[,-/*].*")
+            || arr[1].matches(".*[,-/*].*"))
+            && !conn.getGroups().contains(ADMIN_GROUP))
+        {
+          LOG.info("Cron frequency cannot be more than once per hour");
+          conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
+              "Cron frequency cannot be more than once per hour" + "\n"
+                  + "Updates were not saved" + "\n"
+                  + "Reload the page in browser to see note cron settings on the server" + "\n"
+                  + "\n"
+                  + "Support contact: zeppelin-users@twitter.com or zeppelin hipchat"
+          )));
+          return;
+        }
+      }
+
       if (conn.getGroups().contains(ADMIN_GROUP) ||
                 executingUser == null ||
                 executingUser.equals(prevExecutingUser) ||
@@ -1141,7 +1176,10 @@ public class NotebookServer extends WebSocketServlet implements
     String replName = Paragraph.getExtendedRequiredReplName(text);
     String dataSourceKey = Paragraph.getDataSourceKey(text);
 
-    if (replName.contains("spark")) {
+    LOG.info("noteId: {} paragraphId: {} text: {} replName: {} dataSourceKey: {}",
+        noteId, paragraphId, text, replName, dataSourceKey);
+
+    if (replName != null && replName.contains("spark")) {
       if (userAndRoles.contains("hadoop-nonpublic")) {
         LOG.info("Spark query allowed for {} {}", conn.getUser(), userAndRoles);
       } else {
@@ -1154,7 +1192,8 @@ public class NotebookServer extends WebSocketServlet implements
         return;
       }
     }
-    if (replName.contains("hive") && !dataSourceKey.equals("hive")) {
+    if (replName != null && replName.contains("hive")
+        && dataSourceKey != null && !dataSourceKey.equals("hive")) {
       conn.send(serializeMessage(new Message(OP.UNSUPPORTED_INTERPRETER).put("info",
           "Hive interpreter not supported for accessing databases. " +
           "Please use '%jdbc(&lt;db-prefix&gt;)' instead")));
@@ -1162,8 +1201,9 @@ public class NotebookServer extends WebSocketServlet implements
     }
 
     UserCredentials userCredentials = note.getCredentials().getUserCredentials(conn.getUser());
-    if (replName.contains("vertica") || replName.contains("mysql")) {
-      if (userCredentials == null || userCredentials.getUsernamePassword(dataSourceKey) == null) {
+    if (replName != null && (replName.contains("vertica") || replName.contains("mysql"))) {
+      if (userCredentials == null ||
+          dataSourceKey == null || userCredentials.getUsernamePassword(dataSourceKey) == null) {
         LOG.info("User Credentials for user {} not found for data source {}",
                 conn.getUser(), dataSourceKey);
         conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",

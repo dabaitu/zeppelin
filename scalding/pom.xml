@@ -140,25 +140,9 @@
 
     <dependency>
       <groupId>com.twitter</groupId>
-      <artifactId>loglens-log4j-logging_2.10</artifactId>
-      <version>20150730130040-20f3117</version>
+      <artifactId>loglens-log4j-logging_2.11</artifactId>
+      <version>20151031182554-fbb3bdd</version>
       <exclusions>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-reflect</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-library</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>com.fasterxml.jackson.core</groupId>
-          <artifactId>jackson-annotations</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>com.fasterxml.jackson.core</groupId>
-          <artifactId>jackson-core</artifactId>
-        </exclusion>
         <exclusion>
           <groupId>com.twitter</groupId>
           <artifactId>finagle-stats_2.10</artifactId>

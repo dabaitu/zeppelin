@@ -191,13 +191,13 @@ public class NotebookAuthorization {
   }
 
   public boolean isWriter(String noteId, Set<String> entities) {
-    return isMember(entities, getWriters(noteId)) || isMember(entities, getOwners(noteId));
+    return isMember(entities, getWriters(noteId)) || isOwner(noteId, entities);
   }
 
   public boolean isReader(String noteId, Set<String> entities) {
     return isMember(entities, getReaders(noteId)) ||
-            isMember(entities, getOwners(noteId)) ||
-            isMember(entities, getWriters(noteId));
+            isWriter(noteId, entities) ||
+            isOwner(noteId, entities);
   }
 
   // return true if b is empty or if (a intersection b) is non-empty
