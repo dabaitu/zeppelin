@@ -697,13 +697,25 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
 
   function convertPermissionsToArray() {
     if (!angular.isArray($scope.permissions.owners)) {
-      $scope.permissions.owners = $scope.permissions.owners.split(',');
+      if ($scope.permissions.owners === '') {
+        $scope.permissions.owners = [];
+      } else {
+        $scope.permissions.owners = $scope.permissions.owners.split(',');
+      }
     }
     if (!angular.isArray($scope.permissions.readers)) {
-      $scope.permissions.readers = $scope.permissions.readers.split(',');
+      if ($scope.permissions.readers === '') {
+        $scope.permissions.readers = [];
+      } else {
+        $scope.permissions.readers = $scope.permissions.readers.split(',');
+      }
     }
     if (!angular.isArray($scope.permissions.writers)) {
-      $scope.permissions.writers = $scope.permissions.writers.split(',');
+      if ($scope.permissions.writers === '') {
+        $scope.permissions.writers = [];
+      } else {
+        $scope.permissions.writers = $scope.permissions.writers.split(',');
+      }
     }
   }
 

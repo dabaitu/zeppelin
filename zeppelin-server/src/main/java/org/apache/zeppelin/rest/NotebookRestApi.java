@@ -172,7 +172,7 @@ public class NotebookRestApi {
     notebookAuthorization.setReaders(noteId, readers);
     notebookAuthorization.setWriters(noteId, writers);
     notebookAuthorization.setOwners(noteId, owners);
-    LOG.debug("After set permissions {} {} {}",
+    LOG.info("After set permissions {} {} {}",
             notebookAuthorization.getOwners(noteId),
             notebookAuthorization.getReaders(noteId),
             notebookAuthorization.getWriters(noteId));
