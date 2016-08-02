@@ -1299,7 +1299,7 @@ angular.module('zeppelinWebApp')
   };
 
   var yAxisTickFormat = function(d) {
-    if(d >= Math.pow(10,6)){
+    if(Math.abs(d) >= Math.pow(10,6)){
       return customAbbrevFormatter(d);
     }
     return groupedThousandsWith3DigitsFormatter(d);
