@@ -419,10 +419,6 @@ public class Note implements Serializable, JobListener {
   public void runAll() {
     String cronExecutingUser = (String) getConfig().get("cronExecutingUser");
     logger.info("Note: {} cronExecutingUser: {}", id, cronExecutingUser);
-    if (cronExecutingUser == null || cronExecutingUser.equals("")) {
-      logger.error("Cannot run all paragraphs. cronExecutingUser: " + cronExecutingUser);
-      return;
-    }
     synchronized (paragraphs) {
       if (!paragraphs.isEmpty()) {
         setLastReplName(paragraphs.get(paragraphs.size() - 1));

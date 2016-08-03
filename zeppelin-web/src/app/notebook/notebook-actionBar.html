@@ -140,12 +140,14 @@ limitations under the License.
                        ng-enter="setCronExecutingUser(note.config.cronExecutingUser)"
                        dropdown-input />
               </div>
+              Cron execution REQUIRES valid cronExecutingUser.
               <div>
                 <span>- auto-restart interpreter on cron execution </span>
                 <input type="checkbox"
                        ng-model="note.config.releaseresource"
                        ng-click="setReleaseResource(note.config.releaseresource)">
               </div>
+              Do NOT auto-restart for jdbc (SQL) notes.
             </div>
           </li>
         </ul>

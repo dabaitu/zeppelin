@@ -637,6 +637,12 @@ public class Notebook {
 
       String noteId = context.getJobDetail().getJobDataMap().getString("noteId");
       Note note = notebook.getNote(noteId);
+      String cronExecutingUser = (String) note.getConfig().get("cronExecutingUser");
+      logger.info("Note: {} cronExecutingUser: {}", noteId, cronExecutingUser);
+      if (cronExecutingUser == null || cronExecutingUser.equals("")) {
+        logger.error("Cannot run all paragraphs. cronExecutingUser: " + cronExecutingUser);
+        return;
+      }
       note.runAll();
     
       while (!note.isTerminated()) {
