@@ -169,7 +169,7 @@ public class NotebookServer extends WebSocketServlet implements
             unicastNoteList(conn, subject);
             break;
           case RELOAD_NOTES_FROM_REPO:
-            broadcastReloadedNoteList(subject);
+            broadcastReloadedNoteList(conn, subject);
             break;
           case GET_HOME_NOTE:
             sendHomeNote(conn, userAndRoles, notebook, messagereceived);
@@ -503,7 +503,18 @@ public class NotebookServer extends WebSocketServlet implements
     unicast(new Message(OP.NOTES_INFO).put("notes", notesInfo), conn);
   }
 
-  public void broadcastReloadedNoteList(AuthenticationInfo subject) {
+  public void broadcastReloadedNoteList(NotebookSocket conn, AuthenticationInfo subject)
+      throws IOException {
+    LOG.info("User: {} trying to refresh the entire notebook", conn.getUser());
+    if (!conn.getGroups().contains(ADMIN_GROUP)) {
+      LOG.info("User: {} Only admins can refresh the entire notebook", conn.getUser());
+      conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
+          "Only admins can refresh the entire notebook" + "\n"
+              + "\n"
+              + "Support contact: zeppelin-users@twitter.com or zeppelin hipchat"
+      )));
+      return;
+    }
     List<Map<String, String>> notesInfo = generateNotebooksInfo(true, subject);
     broadcastAll(new Message(OP.NOTES_INFO).put("notes", notesInfo));
   }
@@ -604,12 +615,34 @@ public class NotebookServer extends WebSocketServlet implements
     Note note = notebook.getNote(noteId);
     if (note == null) {
     } else {
+      LOG.info("config: {}", config);
       boolean cronUpdated = isCronUpdated(config, note.getConfig());
 
       String prevExecutingUser = (String) note.getConfig().get("cronExecutingUser");
       String executingUser = (String) config.get("cronExecutingUser");
-
       String cronExpr = (String) config.get("cron");
+
+      if (config.containsKey("releaseresource")) {
+        try {
+          boolean releaseResource = false;
+          releaseResource = (boolean) config.get("releaseresource");
+          LOG.info("releaseResource: {}", releaseResource);
+          if ((releaseResource == true) && !conn.getGroups().contains(ADMIN_GROUP)) {
+            LOG.info("releaseResource cannot be set to true by non-admins");
+            conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
+                "releaseResource cannot be set to true by non-admins" + "\n"
+                    + "Updates were not saved" + "\n"
+                    + "Reload the page in browser to see settings on the server" + "\n"
+                    + "\n"
+                    + "Support contact: zeppelin-users@twitter.com or zeppelin hipchat"
+            )));
+            return;
+          }
+        } catch (ClassCastException e) {
+          LOG.error(e.getMessage(), e);
+        }
+      }
+
       LOG.info("Cron expression: {}", cronExpr);
       if (cronExpr != null && cronExpr.trim().length() != 0) {
         String[] arr = cronExpr.split("\\s+");
