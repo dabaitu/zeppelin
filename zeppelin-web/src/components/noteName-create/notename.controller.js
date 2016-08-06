@@ -15,7 +15,7 @@
 'use strict';
 
 angular.module('zeppelinWebApp').controller('NotenameCtrl', function($scope, notebookListDataFactory,
-                                                             $rootScope, $routeParams, websocketMsgSrv) {
+                                                             $rootScope, $routeParams, $http, baseUrlSrv, websocketMsgSrv) {
   var vm = this;
   vm.clone = false;
   vm.notes = notebookListDataFactory;
@@ -44,6 +44,7 @@ angular.module('zeppelinWebApp').controller('NotenameCtrl', function($scope, not
 
   vm.newNoteName = function () {
     var newCount = 1;
+    getZeppelinUser();
     angular.forEach(vm.notes.flatList, function (noteName) {
       noteName = noteName.name;
       if (noteName.match(/^Untitled Note [0-9]*$/)) {
@@ -53,7 +54,18 @@ angular.module('zeppelinWebApp').controller('NotenameCtrl', function($scope, not
         }
       }
     });
-    return 'Untitled Note ' + newCount;
+    return 'Users/' + $scope.username + '/Untitled Note ' + newCount;
   };
+
+  function getZeppelinUser() {
+    console.log('user');
+    $http.get(baseUrlSrv.getRestApiBase() + '/credential').success(
+      function(data, status, headers, config) {
+        $scope.username = data.body;
+      }).error(
+      function(data, status, headers, config) {
+        console.log('Error %o %o', status, data.message);
+      });
+  }
 
 });

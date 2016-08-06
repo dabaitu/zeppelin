@@ -80,4 +80,11 @@ public class CredentialRestApi {
     return new JsonResponse(Status.OK, "", "").build();
   }
 
+  @GET
+  public Response getUser() throws IOException {
+    String user = SecurityUtils.getUser(servReq);
+    logger.info("Return username for user {} ", user);
+    return new JsonResponse(Status.OK, "Zeppelin user", user).build();
+  }
+
 }
