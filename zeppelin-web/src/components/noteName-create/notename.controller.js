@@ -42,9 +42,20 @@ angular.module('zeppelinWebApp').controller('NotenameCtrl', function($scope, not
     $scope.$apply();
   };
 
+  function setZeppelinUser() {
+    $http.get(baseUrlSrv.getRestApiBase() + '/credential').success(
+      function(data, status, headers, config) {
+        $scope.username = data.body;
+        window.console.log('user: ' + $scope.username);
+      }).error(
+      function(data, status, headers, config) {
+        console.log('Error %o %o', status, data.message);
+      });
+  }
+
   vm.newNoteName = function () {
     var newCount = 1;
-    getZeppelinUser();
+    setZeppelinUser();
     angular.forEach(vm.notes.flatList, function (noteName) {
       noteName = noteName.name;
       if (noteName.match(/^Untitled Note [0-9]*$/)) {
@@ -54,18 +65,10 @@ angular.module('zeppelinWebApp').controller('NotenameCtrl', function($scope, not
         }
       }
     });
-    return 'Users/' + $scope.username + '/Untitled Note ' + newCount;
+    if ($scope.username === undefined) {
+      return 'Users/<your_username>/Untitled Note ' + newCount;
+    } else {
+      return 'Users/' + $scope.username + '/Untitled Note ' + newCount;
+    }
   };
-
-  function getZeppelinUser() {
-    console.log('user');
-    $http.get(baseUrlSrv.getRestApiBase() + '/credential').success(
-      function(data, status, headers, config) {
-        $scope.username = data.body;
-      }).error(
-      function(data, status, headers, config) {
-        console.log('Error %o %o', status, data.message);
-      });
-  }
-
 });
