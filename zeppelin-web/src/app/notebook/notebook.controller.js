@@ -330,6 +330,11 @@ angular.module('zeppelinWebApp').controller('NotebookCtrl',
   /** Update the note name */
   $scope.sendNewName = function() {
     if ($scope.note.name) {
+      window.console.log('sendNewName $scope.note.name: ' + $scope.note.name);
+      if (!$rootScope.isAdmin($rootScope.zeppelinUser) && !$rootScope.standardNoteName($scope.note.name)) {
+        $rootScope.showNoteNameDialog();
+        return;
+      }
       websocketMsgSrv.updateNotebook($scope.note.id, $scope.note.name, $scope.note.config);
     }
   };

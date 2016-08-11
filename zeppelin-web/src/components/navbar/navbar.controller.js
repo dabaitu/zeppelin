@@ -30,7 +30,7 @@ angular.module('zeppelinWebApp')
           return notebook;
         }
 
-        if (notebook.children) { 
+          if (notebook.children) {
           filteringNote(notebook.children, filteredNotes);
         }
       });
@@ -156,10 +156,21 @@ angular.module('zeppelinWebApp')
       });
   }
 
+  function getZeppelinUser() {
+    $http.get(baseUrlSrv.getRestApiBase() + '/credential').success(
+      function(data, status, headers, config) {
+        $rootScope.zeppelinUser = data.body;
+      }).error(
+      function(data, status, headers, config) {
+        console.log('Error %o %o', status, data.message);
+      });
+  }
+
   vm.loadNotes = loadNotes;
   vm.isActive = isActive;
 
   getZeppelinVersion();
+  getZeppelinUser();
   vm.loadNotes();
   $scope.checkUsername();
 

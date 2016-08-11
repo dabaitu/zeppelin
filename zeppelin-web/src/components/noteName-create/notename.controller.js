@@ -22,7 +22,36 @@ angular.module('zeppelinWebApp').controller('NotenameCtrl', function($scope, not
   vm.websocketMsgSrv = websocketMsgSrv;
   $scope.note = {};
 
+  $rootScope.isAdmin = function(zeppelinUser) {
+    var adminArray = ['jsprowl', 'rohanr', 'pwagle', 'srikantht'];
+    return (adminArray.indexOf(zeppelinUser) >= 0);
+  };
+
+  $rootScope.standardNoteName = function(noteName) {
+    return (noteName.startsWith('#Users/')) ||
+      (noteName.startsWith('0 Tutorial/')) ||
+      (noteName.startsWith('1 Misc/')) ||
+      (noteName.startsWith('2 To Be Deleted/')) ||
+      (noteName.charAt(0).match(/[a-z]/i) && noteName.includes('/'));
+  };
+
+  $rootScope.showNoteNameDialog = function() {
+    BootstrapDialog.alert({
+      closable: true,
+      title: 'Please create notes in #Users or Project folders',
+      message: 'To create a note in #Users folder begin note names with "#Users/' +
+                 $rootScope.zeppelinUser + '/NOTE_NAME"' +
+               '\n' +
+               'Project folder names cannot start with numbers or symbols'
+    });
+  };
+
   vm.createNote = function() {
+      window.console.log('createNote $scope.note.notename: ' + $scope.note.notename);
+      if (!$rootScope.isAdmin($rootScope.zeppelinUser) && !$rootScope.standardNoteName($scope.note.notename)) {
+        $rootScope.showNoteNameDialog();
+        return;
+      }
       if (!vm.clone) {
         vm.websocketMsgSrv.createNotebook($scope.note.notename);
       } else {
@@ -42,20 +71,8 @@ angular.module('zeppelinWebApp').controller('NotenameCtrl', function($scope, not
     $scope.$apply();
   };
 
-  function setZeppelinUser() {
-    $http.get(baseUrlSrv.getRestApiBase() + '/credential').success(
-      function(data, status, headers, config) {
-        $scope.username = data.body;
-        window.console.log('user: ' + $scope.username);
-      }).error(
-      function(data, status, headers, config) {
-        console.log('Error %o %o', status, data.message);
-      });
-  }
-
   vm.newNoteName = function () {
     var newCount = 1;
-    setZeppelinUser();
     angular.forEach(vm.notes.flatList, function (noteName) {
       noteName = noteName.name;
       if (noteName.match(/^Untitled Note [0-9]*$/)) {
@@ -65,10 +82,6 @@ angular.module('zeppelinWebApp').controller('NotenameCtrl', function($scope, not
         }
       }
     });
-    if ($scope.username === undefined) {
-      return 'Users/<your_username>/Untitled Note ' + newCount;
-    } else {
-      return 'Users/' + $scope.username + '/Untitled Note ' + newCount;
-    }
+    return '#Users/' + $rootScope.zeppelinUser + '/Untitled Note ' + newCount;
   };
 });
