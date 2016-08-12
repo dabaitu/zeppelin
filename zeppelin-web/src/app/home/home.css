@@ -779,3 +779,23 @@ This part should be removed when new version of bootstrap handles this issue.
 .about .logo img{
   width: 100%;
 }
+
+.homeTwitter table {
+  table-layout: fixed;
+  word-break: break-all;
+  border: 1px solid;
+}
+
+.homeTwitter table tr {
+  padding : 5px 5px 5px 5px;
+  border: 1px solid;
+}
+
+.homeTwitter table tr *:nth-child(2) {
+  text-align: right;
+}
+
+.homeTwitter table td {
+  padding : 2px 2px 2px 2px;
+  border: 1px solid;
+}
