@@ -1340,6 +1340,7 @@ angular.module('zeppelinWebApp')
                 cellProperties.format = '0,0.[00000]';
                 td.style.textAlign = 'left';
                 Handsontable.renderers.NumericRenderer.apply(this, arguments);
+                $scope.columnFormat[col] = 'numeric';
               }
             } else if (value.length > '%html'.length && '%html ' === value.substring(0, '%html '.length)) {
               td.innerHTML = value.substring('%html'.length);
@@ -1350,7 +1351,9 @@ angular.module('zeppelinWebApp')
           return cellProperties;
         },
         afterRender: function(isForced) {
-          $scope.isChangingColType = false;
+          if (typeof $scope.isChangingColType !== 'undefined') {
+            $scope.isChangingColType = false;
+          }
         },
         afterGetColHeader: function(col, TH) {
           var instance = this;
