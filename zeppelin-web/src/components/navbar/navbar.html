@@ -37,17 +37,6 @@ limitations under the License.
 
     <div class="collapse navbar-collapse" ng-controller="NavCtrl as navbar">
       <ul class="nav navbar-nav" ng-if="ticket">
-        <li class="dropdown" dropdown>
-          <a href="#" class="dropdown-toggle" dropdown-toggle>Notebook <span class="caret"></span></a>
-          <ul class="dropdown-menu" role="menu">
-            <li><a href="" data-toggle="modal" data-target="#noteNameModal"><i class="fa fa-plus"></i> Create new note</a></li>
-            <li class="divider"></li>
-            <div id="notebook-list" class="scrollbar-container">
-              <li class="filter-names" ng-include="'components/filterNoteNames/filter-note-names.html'"></li>
-              <li ng-repeat="note in navbar.notes.root.children |notebookFilter:query track by $index" ng-class="{'active' : navbar.isActive(note.id)}" ng-include="'notebook_list_renderer.html'"></li>
-            </div>
-          </ul>
-        </li>
         <li>
           <a href="#/credential">Credential</a>
         </li>
@@ -113,11 +102,6 @@ limitations under the License.
               <a ng-click="logout()">Logout</a>
             </li>
           </ul>
-        </li>
-        <li ng-if="!ticket">
-          <button class="btn btn-default" data-toggle="modal" data-target="#loginModal"
-                  ng-click="showLoginWindow()" style="margin-top: 8px">Login
-          </button>
         </li>
 
       </ul>
