@@ -47,19 +47,21 @@ import javax.ws.rs.core.Response;
  */
 public class AdminAuthenticationFilter implements Filter {
 
-  private static final String ADMIN_GROUP = "coremetrics-team";
+  private static final String ADMIN_GROUP = "realtimecompute-team";
 
   @Override
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain filterChain)
       throws IOException, ServletException {
     HttpServletRequest servReq = (HttpServletRequest) request;
     HashSet<String> groups = SecurityUtils.getGroups(servReq);
-    if (groups.contains(ADMIN_GROUP)) {
+    if (groups.contains(ADMIN_GROUP)
+         || groups.contains("coremetrics-team") // TODO(IQ-447) Remove
+    ) {
       filterChain.doFilter(request, response);
     } else {
       HttpServletResponse resp = ((HttpServletResponse) response);
       resp.sendError(HttpServletResponse.SC_FORBIDDEN,
-              "Only members of coremetrics-team are allowed to perform this operation");
+              "Only members of " + ADMIN_GROUP + " are allowed to perform this operation");
     };
   }
 

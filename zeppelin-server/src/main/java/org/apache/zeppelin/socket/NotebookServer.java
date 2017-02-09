@@ -80,7 +80,7 @@ public class NotebookServer extends WebSocketServlet implements
   }
 
   private static final Logger LOG = LoggerFactory.getLogger(NotebookServer.class);
-  private static final String ADMIN_GROUP = "coremetrics-team";
+  private static final String ADMIN_GROUP = "realtimecompute-team";
   Gson gson = new GsonBuilder()
           .setDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").create();
   final Map<String, List<NotebookSocket>> noteSocketMap = new HashMap<>();
@@ -506,7 +506,9 @@ public class NotebookServer extends WebSocketServlet implements
   public void broadcastReloadedNoteList(NotebookSocket conn, AuthenticationInfo subject)
       throws IOException {
     LOG.info("User: {} trying to refresh the entire notebook", conn.getUser());
-    if (!conn.getGroups().contains(ADMIN_GROUP)) {
+    if (!(conn.getGroups().contains(ADMIN_GROUP)
+          || conn.getGroups().contains("coremetrics-team")) // TODO(IQ-447) Remove
+    ) {
       LOG.info("User: {} Only admins can refresh the entire notebook", conn.getUser());
       conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
           "Only admins can refresh the entire notebook" + "\n"
@@ -627,7 +629,10 @@ public class NotebookServer extends WebSocketServlet implements
           boolean releaseResource = false;
           releaseResource = (boolean) config.get("releaseresource");
           LOG.info("releaseResource: {}", releaseResource);
-          if ((releaseResource == true) && !conn.getGroups().contains(ADMIN_GROUP)) {
+          if ((releaseResource == true) &&
+              !(conn.getGroups().contains(ADMIN_GROUP)
+              || conn.getGroups().contains("coremetrics-team")) // TODO(IQ-447) Remove
+          ) {
             LOG.info("releaseResource cannot be set to true by non-admins");
             conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
                 "releaseResource cannot be set to true by non-admins" + "\n"
@@ -663,8 +668,9 @@ public class NotebookServer extends WebSocketServlet implements
         LOG.info("{} {}", arr[0], arr[1]);
         if ((arr[0].matches(".*[,-/*].*")
             || arr[1].matches(".*[,-/*].*"))
-            && !conn.getGroups().contains(ADMIN_GROUP))
-        {
+            && !(conn.getGroups().contains(ADMIN_GROUP)
+                || conn.getGroups().contains("coremetrics-team")) // TODO(IQ-447) Remove
+        ) {
           LOG.info("Cron frequency cannot be more than once per hour");
           conn.send(serializeMessage(new Message(OP.AUTH_INFO).put("info",
               "Cron frequency cannot be more than once per hour" + "\n"
@@ -678,6 +684,7 @@ public class NotebookServer extends WebSocketServlet implements
       }
 
       if (conn.getGroups().contains(ADMIN_GROUP) ||
+                conn.getGroups().contains("coremetrics-team") || // TODO(IQ-447) Remove
                 executingUser == null ||
                 executingUser.equals(prevExecutingUser) ||
                 executingUser.equals(conn.getUser())) {

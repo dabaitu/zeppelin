@@ -31,6 +31,7 @@ import java.util.*;
  */
 public class NotebookAuthorization {
   private static final Logger LOG = LoggerFactory.getLogger(NotebookAuthorization.class);
+  private static final String ADMIN_GROUP = "realtimecompute-team";
 
   /*
    * { "note1": { "owners": ["u1"], "readers": ["u1", "u2"], "writers": ["u1"] },  "note2": ... } }
@@ -187,7 +188,8 @@ public class NotebookAuthorization {
   }
 
   public boolean isOwner(String noteId, Set<String> entities) {
-    return isMember(entities, getOwners(noteId)) || entities.contains("coremetrics-team");
+    return isMember(entities, getOwners(noteId)) || entities.contains(ADMIN_GROUP) ||
+        entities.contains("coremetrics-team"); // TODO(IQ-447) Remove
   }
 
   public boolean isWriter(String noteId, Set<String> entities) {
