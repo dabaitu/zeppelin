@@ -441,7 +441,12 @@ public class JDBCInterpreter extends Interpreter {
 
     String paragraphId = context.getParagraphId();
     try {
-      paragraphIdStatementMap.get(paragraphId).cancel();
+      Statement s = paragraphIdStatementMap.get(paragraphId);
+      if (s != null) {
+        s.cancel();
+      } else {
+        logger.error("Not cancelling a non-exist statement with paragraphId {}", paragraphId);
+      }
     } catch (SQLException e) {
       logger.error("Error while cancelling...", e);
     }
