@@ -54,6 +54,7 @@ zeppelin-web/bower_components
 /zan-repo/
 /drivers/
 /warehouse/
+/node_modules/
 /notebook/
 /local-repo/
 
