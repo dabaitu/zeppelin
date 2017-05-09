@@ -440,8 +440,34 @@ public class Note implements Serializable, JobListener {
         p.setNoteReplLoader(replLoader);
         p.setListener(jobListenerFactory.getParagraphJobListener(this));
         Interpreter intp = replLoader.get(p.getRequiredReplName());
+        schedulePrestoDataSourceSwitch(p);
         intp.getScheduler().submit(p);
       }
+    }
+  }
+
+  /**
+   * Switch data source of scheduled presto query's to the corresponding target pipeline.
+   * For example:
+   *
+   *   %jdbc(presto)  -> %jdbc(presto-schedule)
+   *   %jdbc(presto-devel) -> %jdbc(presto-devel-schedule)
+   *   %jdbc(presto-schedule)  -> %jdbc(presto-schedule)
+   *   %jdbc(presto-schedule-test)  -> %jdbc(presto-schedule-test-schedule)
+   *
+   */
+  private static void schedulePrestoDataSourceSwitch(Paragraph p) {
+    dataSourceSwitch(p, "^presto(?!.*-schedule$).*$", "$0-schedule");
+  }
+
+  private static void dataSourceSwitch(Paragraph p, String matcher, String target) {
+    String currentDataSourceKey = Paragraph.getDataSourceKey(p.getText());
+    if (currentDataSourceKey.matches(matcher)) {
+      String newDataSourceKey = currentDataSourceKey.replaceFirst(matcher, target);
+      String pText = p.getText().replaceFirst(currentDataSourceKey, newDataSourceKey);
+      logger.info("Switched paragraph data source matched {} to {}, the new paragraph: {}",
+        currentDataSourceKey, newDataSourceKey, pText);
+      p.setEffectiveText(pText);
     }
   }
 
@@ -454,6 +480,7 @@ public class Note implements Serializable, JobListener {
     Paragraph p = getParagraph(paragraphId);
     p.setNoteReplLoader(replLoader);
     p.setListener(jobListenerFactory.getParagraphJobListener(this));
+    p.setEffectiveText(null);
     String requiredReplName = p.getRequiredReplName();
     Interpreter intp = replLoader.get(requiredReplName);
     if (intp == null) {
