@@ -240,7 +240,11 @@ public class JDBCInterpreter extends Interpreter {
     } else {
       connection = DriverManager.getConnection(url, properties);
     }
-    connection.setClientInfo(properties);
+    try {
+      connection.setClientInfo(properties);
+    } catch (Throwable ignored) {
+      // ignored
+    }
 //    }
     logger.info("Created connection {}", connection);
     return connection;
