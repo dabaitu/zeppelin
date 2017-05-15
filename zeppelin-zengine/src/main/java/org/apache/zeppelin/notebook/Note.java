@@ -457,12 +457,16 @@ public class Note implements Serializable, JobListener {
    *
    */
   private static void schedulePrestoDataSourceSwitch(Paragraph p) {
-    dataSourceSwitch(p, "^presto(?!.*-schedule$).*$", "$0-schedule");
+    try {
+      dataSourceSwitch(p, "^presto(?!.*-schedule$).*$", "$0-schedule");
+    } catch (Exception ignored) {
+      //ignored
+    }
   }
 
   private static void dataSourceSwitch(Paragraph p, String matcher, String target) {
     String currentDataSourceKey = Paragraph.getDataSourceKey(p.getText());
-    if (currentDataSourceKey.matches(matcher)) {
+    if (currentDataSourceKey != null && currentDataSourceKey.matches(matcher)) {
       String newDataSourceKey = currentDataSourceKey.replaceFirst(matcher, target);
       String pText = p.getText().replaceFirst(currentDataSourceKey, newDataSourceKey);
       logger.info("Switched paragraph data source matched {} to {}, the new paragraph: {}",
