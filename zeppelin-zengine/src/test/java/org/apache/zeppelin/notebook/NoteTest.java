@@ -17,20 +17,19 @@
 
 package org.apache.zeppelin.notebook;
 
-import com.google.common.base.Optional;
-
-import org.apache.commons.lang.StringUtils;
 import org.apache.zeppelin.interpreter.Interpreter;
-import org.apache.zeppelin.interpreter.InterpreterSetting;
+import org.apache.zeppelin.interpreter.InterpreterFactory;
+import org.apache.zeppelin.interpreter.InterpreterResult;
+import org.apache.zeppelin.interpreter.InterpreterSettingManager;
 import org.apache.zeppelin.notebook.repo.NotebookRepo;
 import org.apache.zeppelin.scheduler.Scheduler;
 import org.apache.zeppelin.search.SearchService;
+import org.apache.zeppelin.user.AuthenticationInfo;
 import org.apache.zeppelin.user.Credentials;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import static org.junit.Assert.*;
@@ -40,9 +39,6 @@ import static org.mockito.Mockito.*;
 public class NoteTest {
   @Mock
   NotebookRepo repo;
-
-  @Mock
-  NoteInterpreterLoader replLoader;
 
   @Mock
   JobListenerFactory jobListenerFactory;
@@ -59,110 +55,182 @@ public class NoteTest {
   @Mock
   Scheduler scheduler;
 
+  @Mock
+  NoteEventListener noteEventListener;
+
+  @Mock
+  InterpreterFactory interpreterFactory;
+
+  @Mock
+  InterpreterSettingManager interpreterSettingManager;
+
+  private AuthenticationInfo anonymous = new AuthenticationInfo("anonymous");
+
   @Test
   public void runNormalTest() {
-    when(replLoader.get("spark")).thenReturn(interpreter);
+    when(interpreterFactory.getInterpreter(anyString(), anyString(), eq("spark"))).thenReturn(interpreter);
     when(interpreter.getScheduler()).thenReturn(scheduler);
 
     String pText = "%spark sc.version";
-    Note note = new Note(repo, replLoader, jobListenerFactory, index, credentials);
-    Paragraph p = note.addParagraph();
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
+
+    Paragraph p = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
     p.setText(pText);
+    p.setAuthenticationInfo(anonymous);
     note.run(p.getId());
 
     ArgumentCaptor<Paragraph> pCaptor = ArgumentCaptor.forClass(Paragraph.class);
     verify(scheduler, only()).submit(pCaptor.capture());
-    verify(replLoader, only()).get("spark");
+    verify(interpreterFactory, times(2)).getInterpreter(anyString(), anyString(), eq("spark"));
 
     assertEquals("Paragraph text", pText, pCaptor.getValue().getText());
   }
 
   @Test
-  public void runJdbcTest() {
-    when(replLoader.get("mysql")).thenReturn(null);
-    when(replLoader.get("jdbc")).thenReturn(interpreter);
+  public void addParagraphWithEmptyReplNameTest() {
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
+
+    Paragraph p = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+    assertNull(p.getText());
+  }
+
+  @Test
+  public void addParagraphWithLastReplNameTest() {
+    when(interpreterFactory.getInterpreter(anyString(), anyString(), eq("spark"))).thenReturn(interpreter);
+
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
+    Paragraph p1 = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+    p1.setText("%spark ");
+    Paragraph p2 = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+
+    assertEquals("%spark\n", p2.getText());
+  }
+
+  @Test
+  public void insertParagraphWithLastReplNameTest() {
+    when(interpreterFactory.getInterpreter(anyString(), anyString(), eq("spark"))).thenReturn(interpreter);
+
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
+    Paragraph p1 = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+    p1.setText("%spark ");
+    Paragraph p2 = note.insertNewParagraph(note.getParagraphs().size(), AuthenticationInfo.ANONYMOUS);
+
+    assertEquals("%spark\n", p2.getText());
+  }
+
+  @Test
+  public void insertParagraphWithInvalidReplNameTest() {
+    when(interpreterFactory.getInterpreter(anyString(), anyString(), eq("invalid"))).thenReturn(null);
+
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
+    Paragraph p1 = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+    p1.setText("%invalid ");
+    Paragraph p2 = note.insertNewParagraph(note.getParagraphs().size(), AuthenticationInfo.ANONYMOUS);
+
+    assertNull(p2.getText());
+  }
+
+  @Test
+  public void insertParagraphwithUser() {
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
+    Paragraph p = note.insertNewParagraph(note.getParagraphs().size(), AuthenticationInfo.ANONYMOUS);
+    assertEquals("anonymous", p.getUser());
+  }
+
+  @Test
+  public void clearAllParagraphOutputTest() {
+    when(interpreterFactory.getInterpreter(anyString(), anyString(), eq("md"))).thenReturn(interpreter);
     when(interpreter.getScheduler()).thenReturn(scheduler);
 
-    String pText = "%mysql show databases";
-    Note note = new Note(repo, replLoader, jobListenerFactory, index, credentials);
-    Paragraph p = note.addParagraph();
-    p.setText(pText);
-    note.run(p.getId());
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
+    Paragraph p1 = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+    InterpreterResult result = new InterpreterResult(InterpreterResult.Code.SUCCESS, InterpreterResult.Type.TEXT, "result");
+    p1.setResult(result);
 
-    ArgumentCaptor<Paragraph> pCaptor = ArgumentCaptor.forClass(Paragraph.class);
-    verify(scheduler, only()).submit(pCaptor.capture());
-    verify(replLoader, times(2)).get(anyString());
+    Paragraph p2 = note.addNewParagraph(AuthenticationInfo.ANONYMOUS);
+    p2.setReturn(result, new Throwable());
 
-    assertEquals("Change paragraph text", "%jdbc(mysql) show databases", pCaptor.getValue().getEffectiveText());
-    assertEquals("Change paragraph text", pText, pCaptor.getValue().getText());
+    note.clearAllParagraphOutput();
+
+    assertNull(p1.getReturn());
+    assertNull(p2.getReturn());
   }
 
   @Test
-  public void putDefaultReplNameIfInterpreterSettingAbsent() {
-    when(replLoader.getDefaultInterpreterSetting())
-            .thenReturn(Optional.<InterpreterSetting>absent());
-
-    Note note = new Note(repo, replLoader, jobListenerFactory, index, credentials);
-    note.putDefaultReplName();
-
-    assertEquals(StringUtils.EMPTY, note.getLastReplName());
-    assertEquals(StringUtils.EMPTY, note.getLastInterpreterName());
+  public void getFolderIdTest() {
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
+    // Ordinary case test
+    note.setName("this/is/a/folder/noteName");
+    assertEquals("this/is/a/folder", note.getFolderId());
+    // Normalize test
+    note.setName("/this/is/a/folder/noteName");
+    assertEquals("this/is/a/folder", note.getFolderId());
+    // Root folder test
+    note.setName("noteOnRootFolder");
+    assertEquals(Folder.ROOT_FOLDER_ID, note.getFolderId());
+    note.setName("/noteOnRootFolderStartsWithSlash");
+    assertEquals(Folder.ROOT_FOLDER_ID, note.getFolderId());
   }
 
   @Test
-  public void putDefaultReplNameIfInterpreterSettingPresent() {
-    InterpreterSetting interpreterSetting = Mockito.mock(InterpreterSetting.class);
-    when(interpreterSetting.getName()).thenReturn("spark");
-    when(replLoader.getDefaultInterpreterSetting())
-            .thenReturn(Optional.of(interpreterSetting));
-
-    Note note = new Note(repo, replLoader, jobListenerFactory, index, credentials);
-    note.putDefaultReplName();
-
-    assertEquals("spark", note.getLastReplName());
-    assertEquals("%spark", note.getLastInterpreterName());
+  public void getNameWithoutPathTest() {
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
+    // Notes in the root folder
+    note.setName("noteOnRootFolder");
+    assertEquals("noteOnRootFolder", note.getNameWithoutPath());
+    note.setName("/noteOnRootFolderStartsWithSlash");
+    assertEquals("noteOnRootFolderStartsWithSlash", note.getNameWithoutPath());
+    // Notes in subdirectories
+    note.setName("/a/b/note");
+    assertEquals("note", note.getNameWithoutPath());
+    note.setName("a/b/note");
+    assertEquals("note", note.getNameWithoutPath());
   }
 
   @Test
-  public void addParagraphWithLastReplName() {
-    InterpreterSetting interpreterSetting = Mockito.mock(InterpreterSetting.class);
-    when(interpreterSetting.getName()).thenReturn("spark");
-    when(replLoader.getDefaultInterpreterSetting())
-            .thenReturn(Optional.of(interpreterSetting));
+  public void isTrashTest() {
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
+    // Notes in the root folder
+    note.setName("noteOnRootFolder");
+    assertFalse(note.isTrash());
+    note.setName("/noteOnRootFolderStartsWithSlash");
+    assertFalse(note.isTrash());
 
-    Note note = new Note(repo, replLoader, jobListenerFactory, index, credentials);
-    note.putDefaultReplName(); //set lastReplName
+    // Notes in subdirectories
+    note.setName("/a/b/note");
+    assertFalse(note.isTrash());
+    note.setName("a/b/note");
+    assertFalse(note.isTrash());
 
-    Paragraph p = note.addParagraph();
-
-    assertEquals("%spark ", p.getText());
+    // Notes in trash
+    note.setName(Folder.TRASH_FOLDER_ID + "/a");
+    assertTrue(note.isTrash());
+    note.setName("/" + Folder.TRASH_FOLDER_ID + "/a");
+    assertTrue(note.isTrash());
+    note.setName(Folder.TRASH_FOLDER_ID + "/a/b/c");
+    assertTrue(note.isTrash());
   }
 
   @Test
-  public void insertParagraphWithLastReplName() {
-    InterpreterSetting interpreterSetting = Mockito.mock(InterpreterSetting.class);
-    when(interpreterSetting.getName()).thenReturn("spark");
-    when(replLoader.getDefaultInterpreterSetting())
-            .thenReturn(Optional.of(interpreterSetting));
+  public void getNameWithoutNameItself() {
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
 
-    Note note = new Note(repo, replLoader, jobListenerFactory, index, credentials);
-    note.putDefaultReplName(); //set lastReplName
-
-    Paragraph p = note.insertParagraph(note.getParagraphs().size());
-
-    assertEquals("%spark ", p.getText());
+    assertEquals("getName should return same as getId when name is empty", note.getId(), note.getName());
   }
 
   @Test
-  public void setLastReplName() {
-    String paragraphId = "HelloWorld";
-    Note note = Mockito.spy(new Note(repo, replLoader, jobListenerFactory, index, credentials));
-    Paragraph mockParagraph = Mockito.mock(Paragraph.class);
-    when(note.getParagraph(paragraphId)).thenReturn(mockParagraph);
-    when(mockParagraph.getRequiredReplName()).thenReturn("spark");
+  public void personalizedModeReturnDifferentParagraphInstancePerUser() {
+    Note note = new Note(repo, interpreterFactory, interpreterSettingManager, jobListenerFactory, index, credentials, noteEventListener);
 
-    note.setLastReplName(paragraphId);
-
-    assertEquals("spark", note.getLastReplName());
+    String user1 = "user1";
+    String user2 = "user2";
+    note.setPersonalizedMode(true);
+    note.addNewParagraph(new AuthenticationInfo(user1));
+    Paragraph baseParagraph = note.getParagraphs().get(0);
+    Paragraph user1Paragraph = baseParagraph.getUserParagraph(user1);
+    Paragraph user2Paragraph = baseParagraph.getUserParagraph(user2);
+    assertNotEquals(System.identityHashCode(baseParagraph), System.identityHashCode(user1Paragraph));
+    assertNotEquals(System.identityHashCode(baseParagraph), System.identityHashCode(user2Paragraph));
+    assertNotEquals(System.identityHashCode(user1Paragraph), System.identityHashCode(user2Paragraph));
   }
 }

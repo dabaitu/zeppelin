@@ -18,22 +18,37 @@ package org.apache.zeppelin.notebook.repo.zeppelinhub.rest;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Type;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.entity.StringEntity;
+import org.apache.zeppelin.notebook.repo.zeppelinhub.model.Instance;
 import org.eclipse.jetty.client.HttpClient;
+import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.api.Response;
 import org.eclipse.jetty.client.api.Result;
-import org.eclipse.jetty.client.util.BufferingResponseListener;
 import org.eclipse.jetty.client.util.InputStreamResponseListener;
 import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpMethod;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 /**
  * REST API handler.
@@ -42,26 +57,22 @@ import org.slf4j.LoggerFactory;
 public class ZeppelinhubRestApiHandler {
   private static final Logger LOG = LoggerFactory.getLogger(ZeppelinhubRestApiHandler.class);
   public static final String ZEPPELIN_TOKEN_HEADER = "X-Zeppelin-Token";
+  private static final String USER_SESSION_HEADER = "X-User-Session";
   private static final String DEFAULT_API_PATH = "/api/v1/zeppelin";
   private static boolean PROXY_ON = false;
-  private static String PROXY_HOST;
-  private static int PROXY_PORT;
-
+  //TODO(xxx): possibly switch to jetty-client > 9.3.12 when adopt jvm 1.8
+  private static HttpProxyClient proxyClient;
   private final HttpClient client;
-  private final String zepelinhubUrl;
-  private final String token;
+  private String zepelinhubUrl;
 
-  public static ZeppelinhubRestApiHandler newInstance(String zeppelinhubUrl,
-      String token) {
-    return new ZeppelinhubRestApiHandler(zeppelinhubUrl, token);
+  public static ZeppelinhubRestApiHandler newInstance(String zeppelinhubUrl) {
+    return new ZeppelinhubRestApiHandler(zeppelinhubUrl);
   }
 
-  private ZeppelinhubRestApiHandler(String zeppelinhubUrl, String token) {
+  private ZeppelinhubRestApiHandler(String zeppelinhubUrl) {
     this.zepelinhubUrl = zeppelinhubUrl + DEFAULT_API_PATH + "/";
-    this.token = token;
 
-    //TODO(khalid):to make proxy conf consistent with Zeppelin confs
-    //readProxyConf();
+    readProxyConf();
     client = getAsyncClient();
 
     try {
@@ -69,140 +80,213 @@ public class ZeppelinhubRestApiHandler {
     } catch (Exception e) {
       LOG.error("Cannot initialize ZeppelinHub REST async client", e);
     }
-
   }
-
+  
   private void readProxyConf() {
-    //try reading http_proxy
-    String proxyHostString = StringUtils.isBlank(System.getenv("http_proxy")) ?
-        System.getenv("HTTP_PROXY") : System.getenv("http_proxy");
+    //try reading https_proxy
+    String proxyHostString = StringUtils.isBlank(System.getenv("https_proxy")) ?
+        System.getenv("HTTPS_PROXY") : System.getenv("https_proxy");
     if (StringUtils.isBlank(proxyHostString)) {
-      //try https_proxy if no http_proxy
-      proxyHostString = StringUtils.isBlank(System.getenv("https_proxy")) ?
-          System.getenv("HTTPS_PROXY") : System.getenv("https_proxy");
+      //try http_proxy if no https_proxy
+      proxyHostString = StringUtils.isBlank(System.getenv("http_proxy")) ?
+          System.getenv("HTTP_PROXY") : System.getenv("http_proxy");
     }
 
-    if (StringUtils.isBlank(proxyHostString)) {
-      PROXY_ON = false;
-    } else {
-      // host format - http://domain:port/
-      String[] parts = proxyHostString.replaceAll("/", "").split(":");
-      if (parts.length != 3) {
-        LOG.warn("Proxy host format is incorrect {}, e.g. http://domain:port/", proxyHostString);
-        PROXY_ON = false;
-        return;
+    if (!StringUtils.isBlank(proxyHostString)) {
+      URI uri = null;
+      try {
+        uri = new URI(proxyHostString);
+      } catch (URISyntaxException e) {
+        LOG.warn("Proxy uri doesn't follow correct syntax", e);
       }
-      PROXY_HOST = parts[1];
-      PROXY_PORT = Integer.parseInt(parts[2]);
-      LOG.info("Proxy protocol: {}, domain: {}, port: {}", parts[0], parts[1], parts[2]);
-      PROXY_ON = true;
+      if (uri != null) {
+        PROXY_ON = true;
+        proxyClient = HttpProxyClient.newInstance(uri);
+      }
     }
   }
 
   private HttpClient getAsyncClient() {
     SslContextFactory sslContextFactory = new SslContextFactory();
     HttpClient httpClient = new HttpClient(sslContextFactory);
-
     // Configure HttpClient
     httpClient.setFollowRedirects(false);
     httpClient.setMaxConnectionsPerDestination(100);
-    // Config considerations
-    //TODO(khalid): consider using proxy
-    //TODO(khalid): consider whether require to follow redirects
-    //TODO(khalid): consider multi-threaded connection manager case
 
+    // Config considerations
+    //TODO(khalid): consider multi-threaded connection manager case
     return httpClient;
   }
 
-  public String asyncGet(String argument) throws IOException {
-    String note = StringUtils.EMPTY;
-
+  /**
+   * Fetch zeppelin instances for a given user.
+   * @param ticket
+   * @return
+   * @throws IOException
+   */
+  public List<Instance> getInstances(String ticket) throws IOException {
     InputStreamResponseListener listener = new InputStreamResponseListener();
-    client.newRequest(zepelinhubUrl + argument)
-          .header(ZEPPELIN_TOKEN_HEADER, token)
-          .send(listener);
-
-    // Wait for the response headers to arrive
     Response response;
+    String url = zepelinhubUrl + "instances";
+    String data;
+
+    Request request = client.newRequest(url).header(USER_SESSION_HEADER, ticket);
+    request.send(listener);
+
     try {
       response = listener.get(30, TimeUnit.SECONDS);
     } catch (InterruptedException | TimeoutException | ExecutionException e) {
-      LOG.error("Cannot perform Get request to ZeppelinHub", e);
-      throw new IOException("Cannot load note from ZeppelinHub", e);
+      LOG.error("Cannot perform request to ZeppelinHub", e);
+      throw new IOException("Cannot perform  GET request to ZeppelinHub", e);
     }
 
     int code = response.getStatus();
     if (code == 200) {
       try (InputStream responseContent = listener.getInputStream()) {
-        note = IOUtils.toString(responseContent, "UTF-8");
+        data = IOUtils.toString(responseContent, "UTF-8");
       }
     } else {
-      LOG.error("ZeppelinHub Get {} returned with status {} ", zepelinhubUrl + argument, code);
-      throw new IOException("Cannot load note from ZeppelinHub");
+      LOG.error("ZeppelinHub GET {} returned with status {} ", url, code);
+      throw new IOException("Cannot perform  GET request to ZeppelinHub");
     }
-    return note;
+    Type listType = new TypeToken<ArrayList<Instance>>() {}.getType();
+    return new Gson().fromJson(data, listType);
   }
 
-  public void asyncPut(String jsonNote) throws IOException {
+  public String get(String token, String argument) throws IOException {
+    if (StringUtils.isBlank(token)) {
+      return StringUtils.EMPTY;
+    }
+    String url = zepelinhubUrl + argument;
+    if (PROXY_ON) {
+      return sendToZeppelinHubViaProxy(new HttpGet(url), StringUtils.EMPTY, token, true);
+    } else {
+      return sendToZeppelinHub(HttpMethod.GET, url, StringUtils.EMPTY, token, true);
+    }
+  }
+  
+  public String putWithResponseBody(String token, String url, String json) throws IOException {
+    if (StringUtils.isBlank(url) || StringUtils.isBlank(json)) {
+      LOG.error("Empty note, cannot send it to zeppelinHub");
+      throw new IOException("Cannot send emtpy note to zeppelinHub");
+    }
+    if (PROXY_ON) {
+      return sendToZeppelinHubViaProxy(new HttpPut(zepelinhubUrl + url), json, token, true);
+    } else {
+      return sendToZeppelinHub(HttpMethod.PUT, zepelinhubUrl + url, json, token, true);
+    }
+  }
+  
+  public void put(String token, String jsonNote) throws IOException {
     if (StringUtils.isBlank(jsonNote)) {
       LOG.error("Cannot save empty note/string to ZeppelinHub");
       return;
     }
-
-    client.newRequest(zepelinhubUrl).method(HttpMethod.PUT)
-        .header(ZEPPELIN_TOKEN_HEADER, token)
-        .content(new StringContentProvider(jsonNote, "UTF-8"), "application/json;charset=UTF-8")
-        .send(new BufferingResponseListener() {
-
-          @Override
-          public void onComplete(Result res) {
-            if (!res.isFailed() && res.getResponse().getStatus() == 200) {
-              LOG.info("Successfully saved note to ZeppelinHub with {}",
-                  res.getResponse().getStatus());
-            } else {
-              LOG.warn("Failed to save note to ZeppelinHub with HttpStatus {}",
-                  res.getResponse().getStatus());
-            }
-          }
-
-          @Override
-          public void onFailure(Response response, Throwable failure) {
-            LOG.error("Failed to save note to ZeppelinHub: {}", response.getReason(), failure);
-          }
-        });
+    if (PROXY_ON) {
+      sendToZeppelinHubViaProxy(new HttpPut(zepelinhubUrl), jsonNote, token, false);
+    } else {
+      sendToZeppelinHub(HttpMethod.PUT, zepelinhubUrl, jsonNote, token, false);
+    }
   }
 
-  public void asyncDel(String argument) {
+  public void del(String token, String argument) throws IOException {
     if (StringUtils.isBlank(argument)) {
       LOG.error("Cannot delete empty note from ZeppelinHub");
       return;
     }
-    client.newRequest(zepelinhubUrl + argument)
-        .method(HttpMethod.DELETE)
-        .header(ZEPPELIN_TOKEN_HEADER, token)
-        .send(new BufferingResponseListener() {
+    if (PROXY_ON) {
+      sendToZeppelinHubViaProxy(new HttpDelete(zepelinhubUrl + argument), StringUtils.EMPTY, token,
+          false);
+    } else {
+      sendToZeppelinHub(HttpMethod.DELETE, zepelinhubUrl + argument, StringUtils.EMPTY, token,
+          false);
+    }
+  }
+  
+  private String sendToZeppelinHubViaProxy(HttpRequestBase request, 
+                                           String json, 
+                                           String token,
+                                           boolean withResponse) throws IOException {
+    request.setHeader(ZEPPELIN_TOKEN_HEADER, token);
+    if (request.getMethod().equals(HttpPost.METHOD_NAME)) {
+      HttpPost post = (HttpPost) request;
+      StringEntity content = new StringEntity(json, "application/json;charset=UTF-8");
+      post.setEntity(content);
+    }
+    if (request.getMethod().equals(HttpPut.METHOD_NAME)) {
+      HttpPut put = (HttpPut) request;
+      StringEntity content = new StringEntity(json, "application/json;charset=UTF-8");
+      put.setEntity(content);
+    }
+    String body = StringUtils.EMPTY;
+    if (proxyClient != null) {
+      body = proxyClient.sendToZeppelinHub(request, withResponse);
+    } else {
+      LOG.warn("Proxy client request was submitted while not correctly initialized");
+    }
+    return body; 
+  }
+  
+  private String sendToZeppelinHub(HttpMethod method,
+                                   String url,
+                                   String json,
+                                   String token,
+                                   boolean withResponse)
+      throws IOException {
+    Request request = client.newRequest(url).method(method).header(ZEPPELIN_TOKEN_HEADER, token);
+    if ((method.equals(HttpMethod.PUT) || method.equals(HttpMethod.POST))
+        && !StringUtils.isBlank(json)) {
+      request.content(new StringContentProvider(json, "UTF-8"), "application/json;charset=UTF-8");
+    }
+    return withResponse ?
+        sendToZeppelinHub(request) : sendToZeppelinHubWithoutResponseBody(request);
+  }
+  
+  private String sendToZeppelinHubWithoutResponseBody(Request request) throws IOException {
+    request.send(new Response.CompleteListener() {
+      @Override
+      public void onComplete(Result result) {
+        Request req = result.getRequest();
+        LOG.info("ZeppelinHub {} {} returned with status {}: {}", req.getMethod(),
+            req.getURI(), result.getResponse().getStatus(), result.getResponse().getReason());
+      }
+    });
+    return StringUtils.EMPTY;
+  }
+  
+  private String sendToZeppelinHub(final Request request) throws IOException {
+    InputStreamResponseListener listener = new InputStreamResponseListener();
+    Response response;
+    String data;
+    request.send(listener);
+    try {
+      response = listener.get(30, TimeUnit.SECONDS);
+    } catch (InterruptedException | TimeoutException | ExecutionException e) {
+      String method = request.getMethod();
+      LOG.error("Cannot perform {} request to ZeppelinHub", method, e);
+      throw new IOException("Cannot perform " + method + " request to ZeppelinHub", e);
+    }
 
-          @Override
-          public void onComplete(Result res) {
-            if (!res.isFailed() && res.getResponse().getStatus() == 200) {
-              LOG.info("Successfully removed note from ZeppelinHub with {}",
-                  res.getResponse().getStatus());
-            } else {
-              LOG.warn("Failed to remove note from ZeppelinHub with HttpStatus {}",
-                  res.getResponse().getStatus());
-            }
-          }
-
-          @Override
-          public void onFailure(Response response, Throwable failure) {
-            LOG.error("Failed to remove note from ZeppelinHub: {}", response.getReason(), failure);
-          }
-        });
+    int code = response.getStatus();
+    if (code == 200) {
+      try (InputStream responseContent = listener.getInputStream()) {
+        data = IOUtils.toString(responseContent, "UTF-8");
+      }
+    } else {
+      String method = response.getRequest().getMethod();
+      String url = response.getRequest().getURI().toString();
+      LOG.error("ZeppelinHub {} {} returned with status {} ", method, url, code);
+      throw new IOException("Cannot perform " + method + " request to ZeppelinHub");
+    }
+    return data;
   }
 
   public void close() {
     try {
       client.stop();
+      if (proxyClient != null) {
+        proxyClient.stop();
+      }
     } catch (Exception e) {
       LOG.info("Couldn't stop ZeppelinHub client properly", e);
     }

@@ -11,17 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-'use strict';
 
-angular.module('zeppelinWebApp').directive('ngEnter', function() {
-  return function(scope, element, attrs) {
-    element.bind('keydown keypress', function(event) {
+angular.module('zeppelinWebApp').directive('ngEnter', ngEnter)
+
+function ngEnter () {
+  return function (scope, element, attrs) {
+    element.bind('keydown keypress', function (event) {
       if (event.which === 13) {
-        scope.$apply(function() {
-          scope.$eval(attrs.ngEnter);
-        });
-        event.preventDefault();
+        if (!event.shiftKey) {
+          scope.$apply(function () {
+            scope.$eval(attrs.ngEnter)
+          })
+        }
+        event.preventDefault()
       }
-    });
-  };
-});
+    })
+  }
+}

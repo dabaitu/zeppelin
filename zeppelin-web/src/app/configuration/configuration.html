@@ -29,7 +29,7 @@ limitations under the License.
   </div>
 </div>
 
-<div class="box width-full home">
+<div class="box width-full">
   <div>
     <div class="row configuration">
       <div class="col-md-12">
@@ -40,11 +40,11 @@ limitations under the License.
             <th>value</th>
           </tr>
           </thead>
-          <tr ng-repeat="(key, value) in configurations" >
+          <tr ng-repeat="key in configurations | sortByKey" >
             <td>{{key}}</td>
             <td>
               <div class="hiding_overflow">
-                {{value}}
+                {{configurations[key]}}
               </div>
             </td>
           </tr>

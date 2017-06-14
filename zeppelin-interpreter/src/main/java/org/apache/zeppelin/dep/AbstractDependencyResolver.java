@@ -17,6 +17,7 @@
 
 package org.apache.zeppelin.dep;
 
+import java.net.URL;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -25,6 +26,7 @@ import java.util.List;
 import org.sonatype.aether.RepositorySystem;
 import org.sonatype.aether.RepositorySystemSession;
 import org.sonatype.aether.repository.Authentication;
+import org.sonatype.aether.repository.Proxy;
 import org.sonatype.aether.repository.RemoteRepository;
 import org.sonatype.aether.repository.RepositoryPolicy;
 import org.sonatype.aether.resolution.ArtifactResult;
@@ -35,13 +37,23 @@ import org.sonatype.aether.resolution.ArtifactResult;
  */
 public abstract class AbstractDependencyResolver {
   protected RepositorySystem system = Booter.newRepositorySystem();
-  protected List<RemoteRepository> repos = new LinkedList<RemoteRepository>();
+  protected List<RemoteRepository> repos = new LinkedList<>();
   protected RepositorySystemSession session;
   
   public AbstractDependencyResolver(String localRepoPath) {
     session = Booter.newRepositorySystemSession(system, localRepoPath);
     repos.add(Booter.newCentralRepository()); // add maven central
     repos.add(Booter.newLocalRepository());
+  }
+
+  public void setProxy(URL proxyUrl, String proxyUser, String proxyPassword) {
+    Authentication auth = new Authentication(proxyUser, proxyPassword);
+    Proxy proxy = new Proxy(proxyUrl.getProtocol(), proxyUrl.getHost(), proxyUrl.getPort(), auth);
+    synchronized (repos) {
+      for (RemoteRepository repo : repos) {
+        repo.setProxy(proxy);
+      }
+    }
   }
 
   public List<RemoteRepository> getRepos() {
@@ -60,7 +72,7 @@ public abstract class AbstractDependencyResolver {
     }
   }
 
-  public void addRepo(String id, String url, boolean snapshot, Authentication auth) {
+  public void addRepo(String id, String url, boolean snapshot, Authentication auth, Proxy proxy) {
     synchronized (repos) {
       delRepo(id);
       RemoteRepository rr = new RemoteRepository(id, "default", url);
@@ -69,6 +81,7 @@ public abstract class AbstractDependencyResolver {
           RepositoryPolicy.UPDATE_POLICY_DAILY,
           RepositoryPolicy.CHECKSUM_POLICY_WARN));
       rr.setAuthentication(auth);
+      rr.setProxy(proxy);
       repos.add(rr);
     }
   }

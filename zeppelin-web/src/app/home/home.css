@@ -23,16 +23,21 @@ body {
   -ms-overflow-style: scrollbar;
 }
 
-.bodyAsIframe {
-  background: white;
+.home {
+  margin-bottom: 0px !important;
 }
 
-.displayNavBar {
-  display: inline !important;
+.bodyAsIframe {
+  padding-top: 20px;
+  background: white;
 }
 
 body.asIframe {
   padding-top: 0;
+}
+
+.displayNavBar {
+  display: inline !important;
 }
 
 body .navbar {
@@ -47,62 +52,37 @@ body .navbar {
   width: auto;
 }
 
-.navbar-inverse {
-  background: #3071a9;
-  color: #fff;
-  border-color: #3071a9;
-  font-size: 18px;
-}
-
-.navbar-inverse .navbar-nav > .open > a,
-.navbar-inverse .navbar-nav > .open > a:hover,
-.navbar-inverse .navbar-nav > .open > a:focus {
-  color: #fff;
-  background: #3071a9;
-}
-
-.navbar-inverse .navbar-toggle:hover,
-.navbar-inverse .navbar-toggle:focus {
-  background: #3071a9;
-}
-
-.navbar-inverse .navbar-nav > li > a:hover,
-.navbar-inverse .navbar-nav > li > a:focus {
-  color: #fff;
-  background: rgba(0, 0, 0, 0.2);
-
-}
-
-.navbar-inverse .navbar-toggle {
-  border-color: #FFFFFF;
-}
-
-.navbar-inverse .navbar-nav > .active > a,
-.navbar-inverse .navbar-nav > .active > a:hover,
-.navbar-inverse .navbar-nav > .active > a:focus {
-  color: #fff;
-  background: #080808;
-}
-
-.navbar-inverse .navbar-nav > li > a {
-  color: #FFFFFF;
-}
-
-.navbar-inverse .navbar-brand {
-  color: #fff;
+.notebook-list-btn {
+  font-size: 13px;
+  margin-left: 2px;
+  cursor: pointer;
   text-decoration: none;
-  font-family: 'Patua One', cursive;
-  font-size: 32px;
 }
 
-a.navbar-brand:hover {
-  color: #fff !important;
+/* Css for the Notebook Dropdown */
+
+.expandable ul {
+  padding-left: 10px !important;
+}
+
+.expandable li {
+  list-style-type: none;
+}
+
+.dropdown-menu .notebook-list-item {
+  text-decoration: none;
+}
+
+.dropdown-menu .notebook-list-item:hover {
+  background: #f5f5f5;
 }
 
 /* bootstrap customization for scrollable dropdown menu */
-.dropdown-menu > .scrollbar-container > li > a {
+.dropdown-menu > .scrollbar-container > li > a,
+.dropdown-menu .notebook-list-item {
   display: block;
-  padding: 3px 20px;
+  text-decoration: none;
+  padding: 1px 10px;
   clear: both;
   font-weight: normal;
   line-height: 1.42857143;
@@ -117,9 +97,9 @@ a.navbar-brand:hover {
   background: #f5f5f5;
 }
 
-.dropdown-menu > .scrollbar-container > .active > a,
-.dropdown-menu > .scrollbar-container > .active > a:hover,
-.dropdown-menu > .scrollbar-container > .active > a:focus {
+#notebook-list li.active > a,
+#notebook-list li.active > a:hover,
+#notebook-list li.active > a:focus {
   color: #fff;
   text-decoration: none;
   background: #428bca;
@@ -148,7 +128,8 @@ a.navbar-brand:hover {
   color: #000;
   height: 28px;
   width: 200px;
-  font: normal normal normal 14px/1 FontAwesome;
+  font-size: 14px;
+  font-family: 'FontAwesome', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
 .dropdown-submenu {
@@ -215,46 +196,6 @@ a.navbar-brand:hover {
   border-radius:6px 0 6px 6px;
 }
 
-@media (max-width: 767px) {
-  .navbar-inverse .navbar-nav .open .dropdown-menu > li > a {
-    color: #D3D3D3;
-  }
-
-  .navbar-nav .open .dropdown-menu > .scrollbar-container > li > a {
-    padding: 5px 15px 5px 25px;
-    line-height: 20px;
-  }
-
-  .navbar-inverse .navbar-nav .open .dropdown-menu > .scrollbar-container > li > a {
-    color: #D3D3D3;
-  }
-
-  .navbar-inverse .navbar-nav .open .dropdown-menu > .scrollbar-container > li > a:hover,
-  .navbar-inverse .navbar-nav .open .dropdown-menu > .scrollbar-container > li > a:focus {
-    color: #fff;
-    background: transparent;
-  }
-
-  .navbar-inverse .navbar-nav .open .dropdown-menu > .scrollbar-container > .active > a,
-  .navbar-inverse .navbar-nav .open .dropdown-menu > .scrollbar-container > .active > a:hover,
-  .navbar-inverse .navbar-nav .open .dropdown-menu > .scrollbar-container > .active > a:focus {
-    color: #fff;
-    background: #080808;
-  }
-
-  .server-status {
-    float: right;
-  }
-
-  .navbar-inverse .navbar-nav .open .dropdown-menu .divider {
-    background: #3071A9;
-  }
-
-  .navbar-inverse .navbar-collapse, .navbar-inverse .navbar-form {
-    border-color: #3071A9;
-  }
-}
-
 #main {
   padding: 10px;
   height: 100%;
@@ -263,29 +204,56 @@ a.navbar-brand:hover {
 #notebook-list {
   position: relative;
   overflow: hidden;
-  display: inline;
+  display: inline-block;
 }
 
 @media (min-width: 768px) {
-  #notebook-list {
-    max-height: 500px;
+  .navbar-fixed-top .dropdown-menu {
+    max-height: calc(100vh - 60px);
+    overflow: auto;
+  }
+  #actionbar .dropdown-menu {
+    max-height: calc(100vh - 110px);
+    overflow: auto;
   }
 }
 
-i.server-status {
-  font-size: 12px;
-  top: -2px;
-  position: relative;
+@media (max-width: 767px) {
+  #actionbar .dropdown-menu {
+    max-height: calc(100vh - 160px);
+    overflow: auto;
+  }
+}
+
+.nav-component {
+  margin-top: 8px;
+}
+
+.nav-btn {
+  color: #fff;
+  background-color: transparent;
+  border-color: transparent;
+  font-size: 14px;
+}
+
+.nav-login-btn,
+.nav-login-btn:hover,
+.nav-login-btn:focus {
+  color: #fff;
+  background-color: #428bca;
+  border-color: #357ebd;
 }
 
 .server-connected {
+  padding-top: 12px;
   color: #00CC00;
+  font-size: 12px !important;
 }
 
 .server-disconnected {
+  padding-top: 12px;
   color: rgba(240, 48, 0, 1);
   font-size: 12px !important;
-  font-weight: bold !important;
 }
 
 .box {
@@ -327,13 +295,13 @@ i.server-status {
 }
 
 .zeppelin {
-  background: url('/assets/images/zepLogo.png') no-repeat right;
+  background: url('../assets/images/zepLogo.png') no-repeat right;
   height: 380px;
   opacity: 0.2;
 }
 
 .zeppelin2 {
-  background: url('/assets/images/zepLogo.png') no-repeat right;
+  background: url('../assets/images/zepLogo.png') no-repeat right;
   background-position-y: 12px;
   height: 380px;
   opacity: 0.2;
@@ -386,40 +354,6 @@ This part should be removed when new version of bootstrap handles this issue.
 
 .modal-dialog, .modal {
   z-index: 10003 !important;
-}
-
-#noteImportModal .modal-body {
-  min-height: 420px;
-  overflow: hidden;
-}
-
-#noteImportModal .modal-footer {
-  min-height: 65px;
-}
-
-#noteImportModal .display-inline a {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  color: #999;
-  cursor: pointer;
-  display: block;
-  float: left;
-  font-size: 98px;
-  height: 240px;
-  margin: 0 10px 16px;
-  padding-top: 60px;
-  text-align: center;
-  text-decoration: none;
-  width: 264px;
-}
-
-#noteImportModal .display-inline a:hover {
-  background: #eee;
-}
-
-#noteImportModal .display-inline a p {
-  font-size: 14px;
 }
 
 /* ------------------------------------------- */

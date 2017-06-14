@@ -1,7 +1,7 @@
 ---
 layout: page
-title: "Dynamic Form"
-description: ""
+title: "Dynamic Form in Apache Zeppelin"
+description: "Apache Zeppelin dynamically creates input forms. Depending on language backend, there're two different ways to create dynamic form."
 group: manual
 ---
 <!--
@@ -19,16 +19,18 @@ limitations under the License.
 -->
 {% include JB/setup %}
 
-## Dynamic Form
+# Dynamic Form
 
-Zeppelin dynamically creates input forms. Depending on language backend, there're two different ways to create dynamic form.
+<div id="toc"></div>
+
+Apache Zeppelin dynamically creates input forms. Depending on language backend, there're two different ways to create dynamic form.
 Custom language backend can select which type of form creation it wants to use.
 
-### Using form Templates
+## Using form Templates
 
-This mode creates form using simple template language. It's simple and easy to use. For example Markdown, Shell, SparkSql language backend uses it.
+This mode creates form using simple template language. It's simple and easy to use. For example Markdown, Shell, Spark SQL language backend uses it.
 
-#### Text input form
+### Text input form
 
 To create text input form, use `${formName}` templates.
 
@@ -42,7 +44,7 @@ Also you can provide default value, using `${formName=defaultValue}`.
 <img src="../assets/themes/zeppelin/img/screenshots/form_input_default.png" />
 
 
-#### Select form
+### Select form
 
 To create select form, use `${formName=defaultValue,option1|option2...}`
 
@@ -54,23 +56,39 @@ Also you can separate option's display name and value, using `${formName=default
 
 <img src="../assets/themes/zeppelin/img/screenshots/form_select_displayname.png" />
 
-#### Checkbox form
+The paragraph will be automatically run after you change your selection by default.
+But in case you have multiple types dynamic form in one paragraph, you might want to run the paragraph after changing all the selections.
+You can control this by unchecking the below **Run on selection change** option in the setting menu.
+
+Even if you uncheck this option, still you can run it by pressing `Enter`.
+
+<img src="../assets/themes/zeppelin/img/screenshots/selectForm-checkbox.png" />
+
+### Checkbox form
 
 For multi-selection, you can create a checkbox form using `${checkbox:formName=defaultValue1|defaultValue2...,option1|option2...}`. The variable will be substituted by a comma-separated string based on the selected items. For example:
 
 <img src="../assets/themes/zeppelin/img/screenshots/form_checkbox.png">
 
-Besides, you can specify the delimiter using `${checkbox(delimiter):formName=...}`:
+You can specify the delimiter using `${checkbox(delimiter):formName=...}`:
 
 <img src="../assets/themes/zeppelin/img/screenshots/form_checkbox_delimiter.png">
 
-### Creates Programmatically
+Like [select form](#select-form), the paragraph will be automatically run after you change your selection by default.
+But in case you have multiple types dynamic form in one paragraph, you might want to run the paragraph after changing all the selections.
+You can control this by unchecking the below **Run on selection change** option in the setting menu.
 
-Some language backend uses programmatic way to create form. For example [ZeppelinContext](../interpreter/spark.html#zeppelincontext) provides form creation API
+Even if you uncheck this option, still you can run it by pressing `Enter`.
 
-Here're some examples.
+<img src="../assets/themes/zeppelin/img/screenshots/selectForm-checkbox.png" />
 
-####Text input form
+## Creates Programmatically
+
+Some language backends can programmatically create forms. For example [ZeppelinContext](../interpreter/spark.html#zeppelincontext) provides a form creation API
+
+Here are some examples:
+
+### Text input form
 <div class="codetabs">
     <div data-lang="scala" markdown="1">
 
@@ -91,7 +109,7 @@ print("Hello "+z.input("name"))
 </div>
 <img src="../assets/themes/zeppelin/img/screenshots/form_input_prog.png" />
 
-####Text input form with default value
+### Text input form with default value
 <div class="codetabs">
     <div data-lang="scala" markdown="1">
 
@@ -112,7 +130,7 @@ print("Hello "+z.input("name", "sun"))
 </div>
 <img src="../assets/themes/zeppelin/img/screenshots/form_input_default_prog.png" />
 
-####Select form
+### Select form
 <div class="codetabs">
     <div data-lang="scala" markdown="1">
 

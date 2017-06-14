@@ -17,29 +17,18 @@
 
 package org.apache.zeppelin.server;
 
-import com.google.common.collect.Sets;
-import com.twitter.common_internal.elfowl.Cookie;
-import org.apache.zeppelin.conf.ZeppelinConfiguration;
-import org.apache.zeppelin.utils.SecurityUtils;
-
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.text.DateFormat;
-import java.util.Arrays;
-import java.util.Date;
 import java.util.HashSet;
-import java.util.Locale;
-
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.core.Response;
+
+import org.apache.zeppelin.user.ElfOwl;
+import org.apache.zeppelin.utils.SecurityUtils;
 
 /**
  * This filter checks if the elfowl cookie groups field contains coremetrics-team
@@ -47,21 +36,16 @@ import javax.ws.rs.core.Response;
  */
 public class AdminAuthenticationFilter implements Filter {
 
-  private static final String ADMIN_GROUP = "realtimecompute-team";
-
   @Override
   public void doFilter(ServletRequest request, ServletResponse response, FilterChain filterChain)
       throws IOException, ServletException {
-    HttpServletRequest servReq = (HttpServletRequest) request;
-    HashSet<String> groups = SecurityUtils.getGroups(servReq);
-    if (groups.contains(ADMIN_GROUP)
-         || groups.contains("coremetrics-team") // TODO(IQ-447) Remove
-    ) {
+    HashSet<String> groups = SecurityUtils.getRoles();
+    if (ElfOwl.isSuperUser(groups)) {
       filterChain.doFilter(request, response);
     } else {
       HttpServletResponse resp = ((HttpServletResponse) response);
       resp.sendError(HttpServletResponse.SC_FORBIDDEN,
-              "Only members of " + ADMIN_GROUP + " are allowed to perform this operation");
+              "Only admins are allowed to perform this operation");
     };
   }
 

@@ -16,42 +16,63 @@
  */
 package org.apache.zeppelin.utils;
 
-import com.google.common.collect.Sets;
-import org.apache.shiro.subject.Subject;
-import com.twitter.common_internal.elfowl.Cookie;
-import org.apache.shiro.realm.Realm;
-import org.apache.shiro.realm.text.IniRealm;
-import org.apache.shiro.util.ThreadContext;
-import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
-import org.apache.shiro.mgt.SecurityManager;
-import org.apache.shiro.config.IniSecurityManagerFactory;
-import org.apache.zeppelin.conf.ZeppelinConfiguration;
-
-import javax.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+
+import com.google.common.collect.Sets;
+
+import org.apache.shiro.config.IniSecurityManagerFactory;
+import org.apache.shiro.mgt.SecurityManager;
+import org.apache.shiro.realm.Realm;
+import org.apache.shiro.realm.text.IniRealm;
+import org.apache.shiro.subject.Subject;
+import org.apache.shiro.util.ThreadContext;
+import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
+import org.apache.zeppelin.conf.ZeppelinConfiguration;
+import org.apache.zeppelin.realm.LdapRealm;
+import org.apache.zeppelin.server.ElfOwlSecurityFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tools for securing Zeppelin
  */
 public class SecurityUtils {
 
+  private static final String ANONYMOUS = "anonymous";
+  private static final HashSet<String> EMPTY_HASHSET = Sets.newHashSet();
+  private static boolean isEnabled = false;
+  private static final Logger log = LoggerFactory.getLogger(SecurityUtils.class);
+
   public static void initSecurityManager(String shiroPath) {
     IniSecurityManagerFactory factory = new IniSecurityManagerFactory("file:" + shiroPath);
     SecurityManager securityManager = factory.getInstance();
     org.apache.shiro.SecurityUtils.setSecurityManager(securityManager);
+    isEnabled = true;
+  }
+
+  // elfowl
+  public static void initSecurityManager(SecurityManager securityManager) {
+    org.apache.shiro.SecurityUtils.setSecurityManager(securityManager);
+    isEnabled = true;
   }
 
   public static Boolean isValidOrigin(String sourceHost, ZeppelinConfiguration conf)
       throws UnknownHostException, URISyntaxException {
-    if (sourceHost == null || sourceHost.isEmpty()) {
-      return false;
+
+    String sourceUriHost = "";
+
+    if (sourceHost != null && !sourceHost.isEmpty()) {
+      sourceUriHost = new URI(sourceHost).getHost();
+      sourceUriHost = (sourceUriHost == null) ? "" : sourceUriHost.toLowerCase();
     }
-    String sourceUriHost = new URI(sourceHost).getHost();
-    sourceUriHost = (sourceUriHost == null) ? "" : sourceUriHost.toLowerCase();
 
     sourceUriHost = sourceUriHost.toLowerCase();
     String currentHost = InetAddress.getLocalHost().getHostName().toLowerCase();
@@ -62,49 +83,30 @@ public class SecurityUtils {
         conf.getAllowedOrigins().contains(sourceHost);
   }
 
-  public static Cookie extractCookie(HttpServletRequest request) {
-    javax.servlet.http.Cookie[] cookies = request.getCookies();
-    String elfOwlCookieValue = null;
-    for (javax.servlet.http.Cookie cookie: cookies) {
-      if (cookie.getName().equals("_elfowl")) {
-        elfOwlCookieValue = cookie.getValue();
-      }
-    }
-    Cookie.Session session = new Cookie.Session(
-            Cookie.Environment.PRODUCTION, request.getHeader("user-agent"));
-    Cookie cookie = Cookie.fromBase64(session, elfOwlCookieValue);
-    return cookie;
-  }
-
-  public static String getUser(HttpServletRequest request) {
-    Cookie cookie = SecurityUtils.extractCookie(request);
-    return cookie.getUser();
-  }
-
-  public static HashSet<String> getGroups(HttpServletRequest request) {
-    Cookie cookie = SecurityUtils.extractCookie(request);
-    return Sets.newHashSet(cookie.getGroups().iterator());
-  }
-
-  
   /**
    * Return the authenticated user if any otherwise returns "anonymous"
    *
    * @return shiro principal
    */
   public static String getPrincipal() {
+    if (!isEnabled) {
+      return ANONYMOUS;
+    }
     Subject subject = org.apache.shiro.SecurityUtils.getSubject();
 
     String principal;
     if (subject.isAuthenticated()) {
       principal = subject.getPrincipal().toString();
     } else {
-      principal = "anonymous";
+      principal = ANONYMOUS;
     }
     return principal;
   }
 
   public static Collection getRealmsList() {
+    if (!isEnabled) {
+      return Collections.emptyList();
+    }
     DefaultWebSecurityManager defaultWebSecurityManager;
     String key = ThreadContext.SECURITY_MANAGER_KEY;
     defaultWebSecurityManager = (DefaultWebSecurityManager) ThreadContext.get(key);
@@ -119,6 +121,9 @@ public class SecurityUtils {
    * @return shiro roles
    */
   public static HashSet<String> getRoles() {
+    if (!isEnabled) {
+      return EMPTY_HASHSET;
+    }
     Subject subject = org.apache.shiro.SecurityUtils.getSubject();
     HashSet<String> roles = new HashSet<>();
     Map allRoles = null;
@@ -127,13 +132,19 @@ public class SecurityUtils {
       Collection realmsList = SecurityUtils.getRealmsList();
       for (Iterator<Realm> iterator = realmsList.iterator(); iterator.hasNext(); ) {
         Realm realm = iterator.next();
-        String name = realm.getName();
-        if (name.equals("iniRealm")) {
+        String name = realm.getClass().getName();
+        if (name.equals("org.apache.shiro.realm.text.IniRealm")) {
           allRoles = ((IniRealm) realm).getIni().get("roles");
+          break;
+        } else if (name.equals("org.apache.zeppelin.realm.LdapRealm")) {
+          allRoles = ((LdapRealm) realm).getListRoles();
+          break;
+        } else if (name.equals("org.apache.shiro.realm.SimpleAccountRealm")) {
+          // elfowl
+          roles = ElfOwlSecurityFilter.getSecurityManager().getRoles(subject);
           break;
         }
       }
-
       if (allRoles != null) {
         Iterator it = allRoles.entrySet().iterator();
         while (it.hasNext()) {
@@ -147,4 +158,13 @@ public class SecurityUtils {
     return roles;
   }
 
+  /**
+   * Checked if shiro enabled or not
+   */
+  public static boolean isAuthenticated() {
+    if (!isEnabled) {
+      return false;
+    }
+    return org.apache.shiro.SecurityUtils.getSubject().isAuthenticated();
+  }
 }

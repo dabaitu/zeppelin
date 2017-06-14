@@ -17,12 +17,15 @@
 
 package org.apache.zeppelin.rest;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.shiro.realm.jdbc.JdbcRealm;
 import org.apache.shiro.realm.ldap.JndiLdapContextFactory;
 import org.apache.shiro.realm.ldap.JndiLdapRealm;
 import org.apache.shiro.realm.text.IniRealm;
 import org.apache.shiro.util.JdbcUtils;
+import org.apache.zeppelin.realm.ActiveDirectoryGroupRealm;
+import org.apache.zeppelin.realm.LdapRealm;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,18 +58,39 @@ public class GetUserList {
   public List<String> getUserList(IniRealm r) {
     List<String> userList = new ArrayList<>();
     Map getIniUser = r.getIni().get("users");
-    Iterator it = getIniUser.entrySet().iterator();
-    while (it.hasNext()) {
-      Map.Entry pair = (Map.Entry) it.next();
-      userList.add(pair.getKey().toString());
+    if (getIniUser != null) {
+      Iterator it = getIniUser.entrySet().iterator();
+      while (it.hasNext()) {
+        Map.Entry pair = (Map.Entry) it.next();
+        userList.add(pair.getKey().toString().trim());
+      }
     }
     return userList;
+  }
+
+
+  /***
+   * Get user roles from shiro.ini
+   * @param r
+   * @return
+   */
+  public List<String> getRolesList(IniRealm r) {
+    List<String> roleList = new ArrayList<>();
+    Map getIniRoles = r.getIni().get("roles");
+    if (getIniRoles != null) {
+      Iterator it = getIniRoles.entrySet().iterator();
+      while (it.hasNext()) {
+        Map.Entry pair = (Map.Entry) it.next();
+        roleList.add(pair.getKey().toString().trim());
+      }
+    }
+    return roleList;
   }
 
   /**
    * function to extract users from LDAP
    */
-  public List<String> getUserList(JndiLdapRealm r) {
+  public List<String> getUserList(JndiLdapRealm r, String searchText) {
     List<String> userList = new ArrayList<>();
     String userDnTemplate = r.getUserDnTemplate();
     String userDn[] = userDnTemplate.split(",", 2);
@@ -79,16 +103,96 @@ public class GetUserList {
       constraints.setSearchScope(SearchControls.SUBTREE_SCOPE);
       String[] attrIDs = {userDnPrefix};
       constraints.setReturningAttributes(attrIDs);
-      NamingEnumeration result = ctx.search(userDnSuffix, "(objectclass=*)", constraints);
+      NamingEnumeration result = ctx.search(userDnSuffix, "(" + userDnPrefix + "=*" + searchText +
+          "*)", constraints);
       while (result.hasMore()) {
         Attributes attrs = ((SearchResult) result.next()).getAttributes();
         if (attrs.get(userDnPrefix) != null) {
           String currentUser = attrs.get(userDnPrefix).toString();
-          userList.add(currentUser.split(":")[1]);
+          userList.add(currentUser.split(":")[1].trim());
         }
       }
     } catch (Exception e) {
       LOG.error("Error retrieving User list from Ldap Realm", e);
+    }
+    LOG.info("UserList: " + userList);
+    return userList;
+  }
+  
+  /**
+   * function to extract users from Zeppelin LdapRealm
+   */
+  public List<String> getUserList(LdapRealm r, String searchText) {
+    List<String> userList = new ArrayList<>();
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("SearchText: " + searchText);
+    }
+    String userAttribute = r.getUserSearchAttributeName();
+    String userSearchRealm = r.getUserSearchBase();
+    String userObjectClass = r.getUserObjectClass();
+    JndiLdapContextFactory CF = (JndiLdapContextFactory) r.getContextFactory();
+    try {
+      LdapContext ctx = CF.getSystemLdapContext();
+      SearchControls constraints = new SearchControls();
+      constraints.setSearchScope(SearchControls.SUBTREE_SCOPE);
+      String[] attrIDs = {userAttribute};
+      constraints.setReturningAttributes(attrIDs);
+      NamingEnumeration result = ctx.search(userSearchRealm, "(&(objectclass=" + 
+            userObjectClass + ")(" 
+            + userAttribute + "=" + searchText + "))", constraints);
+      while (result.hasMore()) {
+        Attributes attrs = ((SearchResult) result.next()).getAttributes();
+        if (attrs.get(userAttribute) != null) {
+          String currentUser;
+          if (r.getUserLowerCase()) {
+            LOG.debug("userLowerCase true");
+            currentUser = ((String) attrs.get(userAttribute).get()).toLowerCase();
+          } else {
+            LOG.debug("userLowerCase false");
+            currentUser = (String) attrs.get(userAttribute).get();            
+          }
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("CurrentUser: " + currentUser);
+          }
+          userList.add(currentUser.trim());
+        }
+      }
+    } catch (Exception e) {
+      LOG.error("Error retrieving User list from Ldap Realm", e);
+    }
+    return userList;
+  }
+  
+  /***
+   * Get user roles from shiro.ini for Zeppelin LdapRealm
+   * @param r
+   * @return
+   */
+  public List<String> getRolesList(LdapRealm r) {
+    List<String> roleList = new ArrayList<>();
+    Map<String, String> roles = r.getListRoles();
+    if (roles != null) {
+      Iterator it = roles.entrySet().iterator();
+      while (it.hasNext()) {
+        Map.Entry pair = (Map.Entry) it.next();
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("RoleKeyValue: " + pair.getKey() + 
+                " = " + pair.getValue());
+        }
+        roleList.add((String) pair.getKey());
+      }
+    }
+    return roleList;
+  }
+  
+
+  public List<String> getUserList(ActiveDirectoryGroupRealm r, String searchText) {
+    List<String> userList = new ArrayList<>();
+    try {
+      LdapContext ctx = r.getLdapContextFactory().getSystemLdapContext();
+      userList = r.searchForUserName(searchText, ctx);
+    } catch (Exception e) {
+      LOG.error("Error retrieving User list from ActiveDirectory Realm", e);
     }
     return userList;
   }
@@ -123,7 +227,7 @@ public class GetUserList {
         username = retval[0];
       }
 
-      if (username.equals("") || tablename.equals("")){
+      if (StringUtils.isBlank(username) || StringUtils.isBlank(tablename)) {
         return userlist;
       }
 
@@ -139,7 +243,7 @@ public class GetUserList {
       ps = con.prepareStatement(userquery);
       rs = ps.executeQuery();
       while (rs.next()) {
-        userlist.add(rs.getString(1));
+        userlist.add(rs.getString(1).trim());
       }
     } catch (Exception e) {
       LOG.error("Error retrieving User list from JDBC Realm", e);

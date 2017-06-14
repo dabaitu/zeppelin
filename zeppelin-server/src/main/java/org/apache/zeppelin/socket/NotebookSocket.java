@@ -16,15 +16,14 @@
  */
 package org.apache.zeppelin.socket;
 
-import org.apache.zeppelin.utils.SecurityUtils;
+import java.io.IOException;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.lang.StringUtils;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.WebSocketAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.servlet.http.HttpServletRequest;
-import java.io.IOException;
-import java.util.HashSet;
 
 /**
  * Notebook websocket
@@ -37,18 +36,13 @@ public class NotebookSocket extends WebSocketAdapter {
   private HttpServletRequest request;
   private String protocol;
   private String user;
-  private HashSet<String> groups;
-  private HashSet<String> userAndGroups;
+
   public NotebookSocket(HttpServletRequest req, String protocol,
       NotebookSocketListener listener) {
     this.listener = listener;
     this.request = req;
     this.protocol = protocol;
-    this.user = SecurityUtils.getUser(req);
-    this.groups = SecurityUtils.getGroups(req);
-    this.userAndGroups = new HashSet<String>();
-    userAndGroups.add(this.user);
-    userAndGroups.addAll(this.groups);
+    this.user = StringUtils.EMPTY;
   }
 
   @Override
@@ -76,14 +70,15 @@ public class NotebookSocket extends WebSocketAdapter {
     return protocol;
   }
 
-  public String getUser() { return user; }
-
-  public HashSet<String> getGroups() { return groups; }
-
-  public HashSet<String> getUserAndGroups() { return userAndGroups; }
-
-  public void send(String serializeMessage) throws IOException {
-    connection.getRemote().sendString(serializeMessage, null);
+  public synchronized void send(String serializeMessage) throws IOException {
+    connection.getRemote().sendString(serializeMessage);
   }
 
+  public String getUser() {
+    return user;
+  }
+
+  public void setUser(String user) {
+    this.user = user;
+  }
 }

@@ -10,19 +10,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-<script type="text/ng-template" id="notebook_list_renderer.html">
-  <a ng-if="note.id" href="#/notebook/{{note.id}}">{{noteName(note)}} </a>
-  <li ng-if="!note.id"
-      class="dropdown-submenu">
-    <a tabindex="-1" href="javascript: void(0)">{{noteName(note)}}</a>
-    <ul class="dropdown-menu">
-      <li ng-repeat="note in note.children track by $index" ng-class="{'active' : navbar.isActive(note.id)}" ng-include="'notebook_list_renderer.html'">
-      </li>
-    </ul>
-  </li>
-</script>
-
-<div class="navbar navbar-inverse navbar-fixed-top" style="display: none;" role="navigation" ng-class="{'displayNavBar': !asIframe}">
+<headroom tolerance="10" offset="30" class="navbar navbar-inverse navbar-fixed-top"
+          style="display: none;" role="navigation"
+          ng-class="{'displayNavBar': !asIframe}">
   <div class="container">
     <div class="navbar-header">
       <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target=".navbar-collapse">
@@ -30,111 +20,132 @@ limitations under the License.
         <span class="icon-bar"></span>
         <span class="icon-bar"></span>
       </button>
-      <a class="navbar-brand" href="#/">
-        <img style="margin-top: -7px;" src="assets/images/zepLogoW.png" width="50" alt="I'm zeppelin"> Zeppelin
+      <!-- title -->
+      <a class="navbar-brand navbar-logo" href="#/">
+        <img style="margin-top: -7px;" src="assets/images/zepLogoW.png" width="50" alt="Zeppelin" />
+      </a>
+      <a class="" href="#/">
+        <span class="navbar-title">Zeppelin</span>
       </a>
     </div>
 
     <div class="collapse navbar-collapse" ng-controller="NavCtrl as navbar">
       <ul class="nav navbar-nav" ng-if="ticket">
+        <!-- menu: Notebook -->
+        <li class="dropdown notebook-list-dropdown" uib-dropdown>
+          <a href="#" class="navbar-menu navbar-menu-notebook dropdown-toggle"
+             data-toggle="dropdown" uib-dropdown-toggle>
+            <span>Notebook</span>
+            <span class="caret"></span></a>
+          <ul class="dropdown-menu" role="menu">
+            <li ng-controller="NotenameCtrl as notenamectrl">
+              <a href="" data-toggle="modal" data-target="#noteNameModal" ng-click="notenamectrl.getInterpreterSettings()">
+                <i class="fa fa-plus"></i>
+                Create new note
+              </a>
+            </li>
+            <li class="divider hidden-xs"></li>
+            <div id="notebook-list" class="scrollbar-container" ng-if="isDrawNavbarNoteList">
+              <li class="filter-names" ng-include="'components/filterNoteNames/filter-note-names.html'"></li>
+              <div ng-if="!query.q || query.q === ''">
+              <li ng-repeat="node in navbar.notes.root.children | orderBy:node:false:navbar.arrayOrderingSrv.noteComparator track by node.id"
+                  ng-class="{'active' : navbar.isActive(node.id)}" ng-include="'components/navbar/navbar-noteList-elem.html'">
+              </li>
+            </div>
+            <div ng-if="query.q">
+              <li ng-repeat="node in navbar.notes.flatList | filter : query.q | orderBy:navbar.arrayOrderingSrv.noteFlatListOrdering track by node.id"
+                  ng-class="{'active' : navbar.isActive(node.id)}" ng-include="'components/navbar/navbar-noteList-elem.html'">
+              </li>
+            </div>
+            </div>
+          </ul>
+        </li>
+        <!-- menu: Job -->
+        <li ng-if="ticket.isAdmin">
+          <a class="navbar-menu navbar-menu-job" href="#/jobmanager">
+            <span>Job</span>
+          </a>
+        </li>
         <li>
           <a href="#/credential">Credential</a>
         </li>
       </ul>
 
-
       <ul class="nav navbar-nav navbar-right" style="margin-right:5px;">
-        <li ng-if="ticket" style="margin-top:10px;">
-        <!--TODO(bzz): move to Typeahead https://angular-ui.github.io/bootstrap  -->
+        <li class="nav-component" ng-if="ticket">
 
-          <form role="search" data-ng-model="searchForm"
-            style="display: inline-block; margin: 0px"
-             class="navbar-form"
-             ng-submit="search(searchForm.searchTerm)">
-            <div class="input-group">
-              <input
-                type="text"
-                style="min-width:300px;"
-                ng-model="searchForm.searchTerm"
-                id="searchTermId"
-                ng-disabled="!navbar.connected"
-                class="form-control"
-                placeholder="Search your Notebooks"
-              />
-              <span class="input-group-btn">
-                <button
-                  type="submit"
-                  class="btn btn-default"
-                  ng-disabled="!navbar.connected || !searchForm.searchTerm"
-                >
-                  <i class="glyphicon glyphicon-search"></i>
-                </button>
-              </span>
-            </div>
+          <form role="search" data-ng-model="navbar.searchForm"
+                style="display: inline-block; margin: 0px"
+                class="navbar-form"
+                ng-submit="navbar.search(navbar.searchForm.searchTerm)">
+            <input
+              type="text"
+              ng-model="navbar.searchForm.searchTerm"
+              ng-disabled="!navbar.connected"
+              id="navbar-search"
+              class="form-control navbar-search"
+              placeholder="&#xf002 Search" />
           </form>
         </li>
-        <li class="dropdown " dropdown="">
-          <a class="dropdown-toggle" type="button" data-toggle="dropdown" href="#"
-             ng-show="navbar.connected" ng-if="ticket.principal == 'anonymous' ">
-            <i class="fa fa-circle server-status"
-               ng-class="{'server-connected':navbar.connected, 'server-disconnected':!navbar.connected}"></i>
-            Connected
-            <span class="caret"></span>
-          </a>
-          <a class="dropdown-toggle" type="button" data-toggle="dropdown" href="#"
-             ng-show="navbar.connected" ng-if="ticket.principal != 'anonymous' "
-             tooltip-placement="bottom" tooltip="{{fullUsername}}">
-            <i class="fa fa-circle server-status"
-               ng-class="{'server-connected':navbar.connected, 'server-disconnected':!navbar.connected}"></i>
-            {{truncatedUsername}}
-            <span class="caret"></span></a>
-          <a class="dropdown-toggle" type="button" data-toggle="dropdown" href="#"
-             ng-show="!navbar.connected">
-            <i class="fa fa-circle server-status"
-               ng-class="{'server-connected':navbar.connected, 'server-disconnected':!navbar.connected}"></i>
-            Disconnected
-            <span class="caret"></span></a>
-
-          <ul class="dropdown-menu">
-            <li><a href="" data-toggle="modal" data-target="#aboutModal">
-              <i style="font-size: 15px;" class="fa fa-info"></i> About</a></li>
-            <li ng-show="ticket.principal && ticket.principal!='anonymous'" style="left: 5px;">
-              <a ng-click="logout()">Logout</a>
-            </li>
-          </ul>
+        <li style="margin-left: 10px;">
+          <div class="dropdown">
+            <i ng-if="navbar.connected" class="fa fa-circle server-connected"
+               uib-tooltip="WebSocket Connected" tooltip-placement="bottom" style="margin-top: 7px; margin-right: 0px; vertical-align: top"></i>
+            <i ng-if="!navbar.connected" class="fa fa-circle server-disconnected"
+               uib-tooltip="WebSocket Disconnected" tooltip-placement="bottom" style="margin-top: 7px; vertical-align: top"></i>
+            <button ng-if="ticket" class="nav-btn dropdown-toggle" type="button" data-toggle="dropdown" style="margin:11px 5px 0 0; padding-left: 0px;">
+              <span class="username">{{ticket.principal}}</span>
+              <span class="caret" style="margin-bottom: 8px"></span>
+            </button>
+            <span ng-if="!ticket" style="margin: 5px;"></span>
+            <ul class="dropdown-menu">
+              <li><a href="" data-toggle="modal" data-target="#aboutModal">About Zeppelin</a></li>
+              <li role="separator" style="margin: 5px 0;" class="divider"></li>
+              <li ng-if="ticket.isAdmin"><a href="#/interpreter">Interpreter</a></li>
+              <li ng-if="ticket.isAdmin"><a href="#/notebookRepos">Notebook Repos</a></li>
+              <li><a href="#/credential">Credential</a></li>
+              <li ng-if="ticket.isAdmin"><a href="#/helium">Helium</a></li>
+              <li ng-if="ticket.isAdmin"><a href="#/configuration">Configuration</a></li>
+              <li ng-if="ticket.principal && ticket.principal !== 'anonymous'" role="separator" style="margin: 5px 0;" class="divider"></li>
+              <li ng-if="ticket.principal && ticket.principal !== 'anonymous'"><a ng-click="navbar.logout()">Logout</a></li>
+            </ul>
+          </div>
         </li>
-
+        <li class="nav-component" ng-if="!ticket">
+          <button class="btn nav-login-btn" data-toggle="modal" data-target="#loginModal"
+                  ng-click="navbar.showLoginWindow()">Login
+          </button>
+        </li>
       </ul>
     </div>
   </div>
-</div>
-<div id="aboutModal" class="modal fade" role="dialog"
-     tabindex='-1'>
-  <div class="modal-dialog">
+</headroom>
 
-    <!-- Modal content-->
-    <div class="modal-content" id="NoteImportCtrl" ng-init="NoteImportInit">
-      <div class="modal-header">
+<!-- about dialog -->
+<div id="aboutModal" class="modal fade" role="dialog" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <!-- about dialog header -->
+      <div class="modal-header modal-header-about">
         <button type="button" class="close" data-dismiss="modal">&times;</button>
         <h4 class="modal-title">About Zeppelin</h4>
       </div>
-      <div class="modal-body">
 
-        <div class="about">
-          <div class="logo">
-            <img src="assets/images/zepLogo.png" alt="Apache Zeppelin" title="Apache Zeppelin">
+      <!-- about dialog body -->
+      <div class="modal-body modal-body-about">
+          <div class="hidden-xs col-sm-4 logo">
+            <img src="assets/images/zepLogo.png" alt="Apache Zeppelin" title="Apache Zeppelin" />
           </div>
-          <div class="content">
+          <div class="col-xs-12 col-sm-8 content">
             <h3>Apache Zeppelin</h3>
-            <br>
+            <br/>
             <span id="i18n-14">Version</span>
-            {{zeppelinVersion}}
-            <br>
-            <br>
+            <span class="modal-body-about-version"> {{zeppelinVersion}} </span>
+            <br/>
+            <br/>
             <a href="http://zeppelin.apache.org/" target="_blank"><span id="i18n-15">Get involved!</span></a>
-            <br>
+            <br/>
             <a href="http://www.apache.org/licenses/LICENSE-2.0" target="_blank"><span id="i18n-16">Licensed under the Apache License, Version 2.0</span></a>
-          </div>
         </div>
 
       </div>

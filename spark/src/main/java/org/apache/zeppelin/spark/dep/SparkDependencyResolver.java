@@ -29,7 +29,6 @@ import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.spark.SparkContext;
-import org.apache.spark.repl.SparkIMain;
 import org.apache.zeppelin.dep.AbstractDependencyResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,7 +59,7 @@ import scala.tools.nsc.util.MergedClassPath;
 public class SparkDependencyResolver extends AbstractDependencyResolver {
   Logger logger = LoggerFactory.getLogger(SparkDependencyResolver.class);
   private Global global;
-  private SparkIMain intp;
+  private ClassLoader runtimeClassLoader;
   private SparkContext sc;
 
   private final String[] exclusions = new String[] {"org.scala-lang:scala-library",
@@ -71,11 +70,14 @@ public class SparkDependencyResolver extends AbstractDependencyResolver {
                                                     "org.apache.zeppelin:zeppelin-spark",
                                                     "org.apache.zeppelin:zeppelin-server"};
 
-  public SparkDependencyResolver(SparkIMain intp, SparkContext sc, String localRepoPath,
-                            String additionalRemoteRepository) {
+  public SparkDependencyResolver(Global global,
+                                 ClassLoader runtimeClassLoader,
+                                 SparkContext sc,
+                                 String localRepoPath,
+                                 String additionalRemoteRepository) {
     super(localRepoPath);
-    this.intp = intp;
-    this.global = intp.global();
+    this.global = global;
+    this.runtimeClassLoader = runtimeClassLoader;
     this.sc = sc;
     addRepoFromProperty(additionalRemoteRepository);
   }
@@ -112,7 +114,7 @@ public class SparkDependencyResolver extends AbstractDependencyResolver {
     }
 
     // NOTE: Must use reflection until this is exposed/fixed upstream in Scala
-    List<String> classPaths = new LinkedList<String>();
+    List<String> classPaths = new LinkedList<>();
     for (URL url : urls) {
       classPaths.add(url.getPath());
     }
@@ -127,31 +129,29 @@ public class SparkDependencyResolver extends AbstractDependencyResolver {
   private void updateRuntimeClassPath_1_x(URL[] urls) throws SecurityException,
       IllegalAccessException, IllegalArgumentException,
       InvocationTargetException, NoSuchMethodException {
-    ClassLoader cl = intp.classLoader().getParent();
     Method addURL;
-    addURL = cl.getClass().getDeclaredMethod("addURL", new Class[] {URL.class});
+    addURL = runtimeClassLoader.getClass().getDeclaredMethod("addURL", new Class[] {URL.class});
     addURL.setAccessible(true);
     for (URL url : urls) {
-      addURL.invoke(cl, url);
+      addURL.invoke(runtimeClassLoader, url);
     }
   }
 
   private void updateRuntimeClassPath_2_x(URL[] urls) throws SecurityException,
       IllegalAccessException, IllegalArgumentException,
       InvocationTargetException, NoSuchMethodException {
-    ClassLoader cl = intp.classLoader().getParent();
     Method addURL;
-    addURL = cl.getClass().getDeclaredMethod("addNewUrl", new Class[] {URL.class});
+    addURL = runtimeClassLoader.getClass().getDeclaredMethod("addNewUrl", new Class[] {URL.class});
     addURL.setAccessible(true);
     for (URL url : urls) {
-      addURL.invoke(cl, url);
+      addURL.invoke(runtimeClassLoader, url);
     }
   }
 
   private MergedClassPath<AbstractFile> mergeUrlsIntoClassPath(JavaPlatform platform, URL[] urls) {
     IndexedSeq<ClassPath<AbstractFile>> entries =
         ((MergedClassPath<AbstractFile>) platform.classPath()).entries();
-    List<ClassPath<AbstractFile>> cp = new LinkedList<ClassPath<AbstractFile>>();
+    List<ClassPath<AbstractFile>> cp = new LinkedList<>();
 
     for (int i = 0; i < entries.size(); i++) {
       cp.add(entries.apply(i));
@@ -200,7 +200,7 @@ public class SparkDependencyResolver extends AbstractDependencyResolver {
       return loadFromMvn(artifact, excludes, addSparkContext);
     } else {
       loadFromFs(artifact, addSparkContext);
-      LinkedList<String> libs = new LinkedList<String>();
+      LinkedList<String> libs = new LinkedList<>();
       libs.add(artifact);
       return libs;
     }
@@ -209,7 +209,7 @@ public class SparkDependencyResolver extends AbstractDependencyResolver {
   private void loadFromFs(String artifact, boolean addSparkContext) throws Exception {
     File jarFile = new File(artifact);
 
-    intp.global().new Run();
+    global.new Run();
 
     if (sc.version().startsWith("1.1")) {
       updateRuntimeClassPath_1_x(new URL[] {jarFile.toURI().toURL()});
@@ -224,8 +224,8 @@ public class SparkDependencyResolver extends AbstractDependencyResolver {
 
   private List<String> loadFromMvn(String artifact, Collection<String> excludes,
       boolean addSparkContext) throws Exception {
-    List<String> loadedLibs = new LinkedList<String>();
-    Collection<String> allExclusions = new LinkedList<String>();
+    List<String> loadedLibs = new LinkedList<>();
+    Collection<String> allExclusions = new LinkedList<>();
     allExclusions.addAll(excludes);
     allExclusions.addAll(Arrays.asList(exclusions));
 
@@ -244,8 +244,8 @@ public class SparkDependencyResolver extends AbstractDependencyResolver {
       }
     }
 
-    List<URL> newClassPathList = new LinkedList<URL>();
-    List<File> files = new LinkedList<File>();
+    List<URL> newClassPathList = new LinkedList<>();
+    List<File> files = new LinkedList<>();
     for (ArtifactResult artifactResult : listOfArtifact) {
       logger.info("Load " + artifactResult.getArtifact().getGroupId() + ":"
           + artifactResult.getArtifact().getArtifactId() + ":"
@@ -257,7 +257,7 @@ public class SparkDependencyResolver extends AbstractDependencyResolver {
           + artifactResult.getArtifact().getVersion());
     }
 
-    intp.global().new Run();
+    global.new Run();
     if (sc.version().startsWith("1.1")) {
       updateRuntimeClassPath_1_x(newClassPathList.toArray(new URL[0]));
     } else {
@@ -302,7 +302,7 @@ public class SparkDependencyResolver extends AbstractDependencyResolver {
   }
 
   public static Collection<String> inferScalaVersion(Collection<String> artifact) {
-    List<String> list = new LinkedList<String>();
+    List<String> list = new LinkedList<>();
     for (String a : artifact) {
       list.add(inferScalaVersion(a));
     }

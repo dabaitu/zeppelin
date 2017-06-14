@@ -27,9 +27,7 @@ import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SQLContext;
 import org.apache.zeppelin.interpreter.Interpreter;
 import org.apache.zeppelin.interpreter.InterpreterContext;
-import org.apache.zeppelin.interpreter.InterpreterGroup;
 import org.apache.zeppelin.interpreter.InterpreterException;
-import org.apache.zeppelin.interpreter.InterpreterPropertyBuilder;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.InterpreterResult.Code;
 import org.apache.zeppelin.interpreter.LazyOpenInterpreter;
@@ -44,12 +42,11 @@ import org.slf4j.LoggerFactory;
  * Spark SQL interpreter for Zeppelin.
  */
 public class SparkSqlInterpreter extends Interpreter {
-  Logger logger = LoggerFactory.getLogger(SparkSqlInterpreter.class);
-  AtomicInteger num = new AtomicInteger(0);
+  private Logger logger = LoggerFactory.getLogger(SparkSqlInterpreter.class);
 
-  private String getJobGroup(InterpreterContext context){
-    return "zeppelin-" + context.getParagraphId();
-  }
+  public static final String MAX_RESULTS = "zeppelin.spark.maxResult";
+
+  AtomicInteger num = new AtomicInteger(0);
 
   private int maxResult;
 
@@ -59,7 +56,7 @@ public class SparkSqlInterpreter extends Interpreter {
 
   @Override
   public void open() {
-    this.maxResult = Integer.parseInt(getProperty("zeppelin.spark.maxResult"));
+    this.maxResult = Integer.parseInt(getProperty(MAX_RESULTS));
   }
 
   private SparkInterpreter getSparkInterpreter() {
@@ -93,12 +90,14 @@ public class SparkSqlInterpreter extends Interpreter {
     SQLContext sqlc = null;
     SparkInterpreter sparkInterpreter = getSparkInterpreter();
 
-    if (sparkInterpreter.getSparkVersion().isUnsupportedVersion()) {
+    if (sparkInterpreter.isUnsupportedSparkVersion()) {
       return new InterpreterResult(Code.ERROR, "Spark "
           + sparkInterpreter.getSparkVersion().toString() + " is not supported");
     }
 
-    sqlc = getSparkInterpreter().getSQLContext();
+    sparkInterpreter.populateSparkWebUrl(context);
+    sparkInterpreter.getZeppelinContext().setInterpreterContext(context);
+    sqlc = sparkInterpreter.getSQLContext();
     SparkContext sc = sqlc.sparkContext();
     if (concurrentSQL()) {
       sc.setLocalProperty("spark.scheduler.pool", "fair");
@@ -106,7 +105,7 @@ public class SparkSqlInterpreter extends Interpreter {
       sc.setLocalProperty("spark.scheduler.pool", null);
     }
 
-    sc.setJobGroup(getJobGroup(context), "Zeppelin", false);
+    sc.setJobGroup(Utils.buildJobGroupId(context), "Zeppelin", false);
     Object rdd = null;
     try {
       // method signature of sqlc.sql() is changed
@@ -128,17 +127,18 @@ public class SparkSqlInterpreter extends Interpreter {
       throw new InterpreterException(e);
     }
 
-    String msg = ZeppelinContext.showDF(sc, context, rdd, maxResult);
+    String msg = sparkInterpreter.getZeppelinContext().showData(rdd);
     sc.clearJobGroup();
     return new InterpreterResult(Code.SUCCESS, msg);
   }
 
   @Override
   public void cancel(InterpreterContext context) {
-    SQLContext sqlc = getSparkInterpreter().getSQLContext();
+    SparkInterpreter sparkInterpreter = getSparkInterpreter();
+    SQLContext sqlc = sparkInterpreter.getSQLContext();
     SparkContext sc = sqlc.sparkContext();
 
-    sc.cancelJobGroup(getJobGroup(context));
+    sc.cancelJobGroup(Utils.buildJobGroupId(context));
   }
 
   @Override
@@ -178,7 +178,8 @@ public class SparkSqlInterpreter extends Interpreter {
   }
 
   @Override
-  public List<InterpreterCompletion> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor,
+      InterpreterContext interpreterContext) {
     return null;
   }
 }

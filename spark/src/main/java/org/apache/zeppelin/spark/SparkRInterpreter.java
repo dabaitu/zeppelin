@@ -21,7 +21,9 @@ import static org.apache.zeppelin.spark.ZeppelinRDisplay.render;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.spark.SparkContext;
 import org.apache.spark.SparkRBackend;
+import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.zeppelin.interpreter.*;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
 import org.apache.zeppelin.scheduler.Scheduler;
@@ -41,7 +43,10 @@ public class SparkRInterpreter extends Interpreter {
   private static final Logger logger = LoggerFactory.getLogger(SparkRInterpreter.class);
 
   private static String renderOptions;
+  private SparkInterpreter sparkInterpreter;
   private ZeppelinR zeppelinR;
+  private SparkContext sc;
+  private JavaSparkContext jsc;
 
   public SparkRInterpreter(Properties property) {
     super(property);
@@ -59,7 +64,6 @@ public class SparkRInterpreter extends Interpreter {
       // workaround to make sparkr work without SPARK_HOME
       System.setProperty("spark.test.home", System.getenv("ZEPPELIN_HOME") + "/interpreter/spark");
     }
-
     synchronized (SparkRBackend.backend()) {
       if (!SparkRBackend.isStarted()) {
         SparkRBackend.init();
@@ -69,12 +73,19 @@ public class SparkRInterpreter extends Interpreter {
 
     int port = SparkRBackend.port();
 
-    SparkInterpreter sparkInterpreter = getSparkInterpreter();
-    ZeppelinRContext.setSparkContext(sparkInterpreter.getSparkContext());
+    this.sparkInterpreter = getSparkInterpreter();
+    this.sc = sparkInterpreter.getSparkContext();
+    this.jsc = sparkInterpreter.getJavaSparkContext();
+    SparkVersion sparkVersion = new SparkVersion(sc.version());
+    ZeppelinRContext.setSparkContext(sc);
+    ZeppelinRContext.setJavaSparkContext(jsc);
+    if (Utils.isSpark2()) {
+      ZeppelinRContext.setSparkSession(sparkInterpreter.getSparkSession());
+    }
     ZeppelinRContext.setSqlContext(sparkInterpreter.getSQLContext());
-    ZeppelinRContext.setZepplinContext(sparkInterpreter.getZeppelinContext());
+    ZeppelinRContext.setZeppelinContext(sparkInterpreter.getZeppelinContext());
 
-    zeppelinR = new ZeppelinR(rCmdPath, sparkRLibPath, port);
+    zeppelinR = new ZeppelinR(rCmdPath, sparkRLibPath, port, sparkVersion);
     try {
       zeppelinR.open();
     } catch (IOException e) {
@@ -88,8 +99,22 @@ public class SparkRInterpreter extends Interpreter {
     renderOptions = getProperty("zeppelin.R.render.options");
   }
 
+  String getJobGroup(InterpreterContext context){
+    return "zeppelin-" + context.getParagraphId();
+  }
+
   @Override
   public InterpreterResult interpret(String lines, InterpreterContext interpreterContext) {
+
+    SparkInterpreter sparkInterpreter = getSparkInterpreter();
+    sparkInterpreter.populateSparkWebUrl(interpreterContext);
+    if (sparkInterpreter.isUnsupportedSparkVersion()) {
+      return new InterpreterResult(InterpreterResult.Code.ERROR, "Spark "
+          + sparkInterpreter.getSparkVersion().toString() + " is not supported");
+    }
+
+    String jobGroup = Utils.buildJobGroupId(interpreterContext);
+    sparkInterpreter.getSparkContext().setJobGroup(jobGroup, "Zeppelin", false);
 
     String imageWidth = getProperty("zeppelin.R.image.width");
 
@@ -109,6 +134,18 @@ public class SparkRInterpreter extends Interpreter {
         lines = lines.replace(jsonConfig, "");
       }
     }
+
+    String setJobGroup = "";
+    // assign setJobGroup to dummy__, otherwise it would print NULL for this statement
+    if (Utils.isSpark2()) {
+      setJobGroup = "dummy__ <- setJobGroup(\"" + jobGroup +
+          "\", \"zeppelin sparkR job group description\", TRUE)";
+    } else if (getSparkInterpreter().getSparkVersion().newerThanEquals(SparkVersion.SPARK_1_5_0)) {
+      setJobGroup = "dummy__ <- setJobGroup(sc, \"" + jobGroup +
+          "\", \"zeppelin sparkR job group description\", TRUE)";
+    }
+    logger.debug("set JobGroup:" + setJobGroup);
+    lines = setJobGroup + "\n" + lines;
 
     try {
       // render output with knitr
@@ -148,7 +185,11 @@ public class SparkRInterpreter extends Interpreter {
   }
 
   @Override
-  public void cancel(InterpreterContext context) {}
+  public void cancel(InterpreterContext context) {
+    if (this.sc != null) {
+      sc.cancelJobGroup(getJobGroup(context));
+    }
+  }
 
   @Override
   public FormType getFormType() {
@@ -157,7 +198,11 @@ public class SparkRInterpreter extends Interpreter {
 
   @Override
   public int getProgress(InterpreterContext context) {
-    return 0;
+    if (sparkInterpreter != null) {
+      return sparkInterpreter.getProgress(context);
+    } else {
+      return 0;
+    }
   }
 
   @Override
@@ -167,7 +212,8 @@ public class SparkRInterpreter extends Interpreter {
   }
 
   @Override
-  public List<InterpreterCompletion> completion(String buf, int cursor) {
+  public List<InterpreterCompletion> completion(String buf, int cursor,
+      InterpreterContext interpreterContext) {
     return new ArrayList<>();
   }
 
@@ -197,5 +243,4 @@ public class SparkRInterpreter extends Interpreter {
       return false;
     }
   }
-
 }

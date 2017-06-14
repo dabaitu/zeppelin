@@ -18,24 +18,36 @@
 package org.apache.zeppelin.rest;
 
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.Response;
+
+import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.realm.Realm;
 import org.apache.shiro.realm.jdbc.JdbcRealm;
 import org.apache.shiro.realm.ldap.JndiLdapRealm;
 import org.apache.shiro.realm.text.IniRealm;
 import org.apache.zeppelin.annotation.ZeppelinApi;
 import org.apache.zeppelin.conf.ZeppelinConfiguration;
+import org.apache.zeppelin.realm.ActiveDirectoryGroupRealm;
+import org.apache.zeppelin.realm.LdapRealm;
 import org.apache.zeppelin.server.JsonResponse;
 import org.apache.zeppelin.ticket.TicketContainer;
+import org.apache.zeppelin.user.ElfOwl;
 import org.apache.zeppelin.utils.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.Response;
-import java.util.*;
 
 /**
  * Zeppelin security rest api endpoint.
@@ -78,6 +90,7 @@ public class SecurityRestApi {
     Map<String, String> data = new HashMap<>();
     data.put("principal", principal);
     data.put("roles", roles.toString());
+    data.put("isAdmin", Boolean.toString(ElfOwl.isSuperUser(roles))); // elfowl
     data.put("ticket", ticket);
 
     response = new JsonResponse(Response.Status.OK, "", data);
@@ -93,42 +106,77 @@ public class SecurityRestApi {
    */
   @GET
   @Path("userlist/{searchText}")
-  public Response getUserList(@PathParam("searchText") String searchText) {
+  public Response getUserList(@PathParam("searchText") final String searchText) {
 
     List<String> usersList = new ArrayList<>();
+    List<String> rolesList = new ArrayList<>();
     try {
       GetUserList getUserListObj = new GetUserList();
       Collection realmsList = SecurityUtils.getRealmsList();
-      for (Iterator<Realm> iterator = realmsList.iterator(); iterator.hasNext(); ) {
-        Realm realm = iterator.next();
-        String name = realm.getName();
-        if (name.equals("iniRealm")) {
-          usersList.addAll(getUserListObj.getUserList((IniRealm) realm));
-        } else if (name.equals("ldapRealm")) {
-          usersList.addAll(getUserListObj.getUserList((JndiLdapRealm) realm));
-        } else if (name.equals("jdbcRealm")) {
-          usersList.addAll(getUserListObj.getUserList((JdbcRealm) realm));
+      if (realmsList != null) {
+        for (Iterator<Realm> iterator = realmsList.iterator(); iterator.hasNext(); ) {
+          Realm realm = iterator.next();
+          String name = realm.getClass().getName();
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("RealmClass.getName: " + name);
+          }
+          if (name.equals("org.apache.shiro.realm.text.IniRealm")) {
+            usersList.addAll(getUserListObj.getUserList((IniRealm) realm));
+            rolesList.addAll(getUserListObj.getRolesList((IniRealm) realm));
+          } else if (name.equals("org.apache.zeppelin.realm.LdapGroupRealm")) {
+            usersList.addAll(getUserListObj.getUserList((JndiLdapRealm) realm, searchText));
+          } else if (name.equals("org.apache.zeppelin.realm.LdapRealm")) {
+            usersList.addAll(getUserListObj.getUserList((LdapRealm) realm, searchText));
+            rolesList.addAll(getUserListObj.getRolesList((LdapRealm) realm));
+          } else if (name.equals("org.apache.zeppelin.realm.ActiveDirectoryGroupRealm")) {
+            usersList.addAll(getUserListObj.getUserList((ActiveDirectoryGroupRealm) realm,
+                searchText));
+          } else if (name.equals("org.apache.shiro.realm.jdbc.JdbcRealm")) {
+            usersList.addAll(getUserListObj.getUserList((JdbcRealm) realm));
+          }
         }
       }
-
     } catch (Exception e) {
       LOG.error("Exception in retrieving Users from realms ", e);
     }
-    List<String> autoSuggestList = new ArrayList<>();
+    List<String> autoSuggestUserList = new ArrayList<>();
+    List<String> autoSuggestRoleList = new ArrayList<>();
     Collections.sort(usersList);
+    Collections.sort(rolesList);
+    Collections.sort(usersList, new Comparator<String>() {
+      @Override
+      public int compare(String o1, String o2) {
+        if (o1.matches(searchText + "(.*)") && o2.matches(searchText + "(.*)")) {
+          return 0;
+        } else if (o1.matches(searchText + "(.*)")) {
+          return -1;
+        }
+        return 0;
+      }
+    });
     int maxLength = 0;
-    for (int i = 0; i < usersList.size(); i++) {
-      String userLowerCase = usersList.get(i).toLowerCase();
-      String searchTextLowerCase = searchText.toLowerCase();
-      if (userLowerCase.indexOf(searchTextLowerCase) != -1) {
+    for (String user : usersList) {
+      if (StringUtils.containsIgnoreCase(user, searchText)) {
+        autoSuggestUserList.add(user);
         maxLength++;
-        autoSuggestList.add(usersList.get(i));
       }
       if (maxLength == 5) {
         break;
       }
     }
-    return new JsonResponse<>(Response.Status.OK, "", autoSuggestList).build();
+
+    for (String role : rolesList) {
+      if (StringUtils.containsIgnoreCase(role, searchText)) {
+        autoSuggestRoleList.add(role);
+      }
+    }
+
+    Map<String, List> returnListMap = new HashMap<>();
+    returnListMap.put("users", autoSuggestUserList);
+    returnListMap.put("roles", autoSuggestRoleList);
+
+
+    return new JsonResponse<>(Response.Status.OK, "", returnListMap).build();
   }
 
 }

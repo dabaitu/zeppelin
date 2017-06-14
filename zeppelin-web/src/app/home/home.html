@@ -11,31 +11,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-<script type="text/ng-template" id="notebook_folder_renderer.html">
-  <div ng-if="node.children == null">
-    <a style="text-decoration: none;" href="#/notebook/{{node.id}}">
-      <i style="font-size: 10px;" class="icon-doc"/> {{noteName(node)}}
-    </a>
-  </div>
-  <div ng-if="node.children != null">
-    <a style="text-decoration: none; cursor: pointer;" ng-click="toggleFolderNode(node)">
-      <i style="font-size: 10px;" ng-class="node.hidden ? 'icon-folder' : 'icon-folder-alt'" /> {{noteName(node)}}
-    </a>
-    <div ng-if="!node.hidden">
-      <ul style="list-style-type: none; padding-left:15px;">
-        <li ng-repeat="node in node.children" ng-include="'notebook_folder_renderer.html'" />
-      </ul>
-    </div>
-  </div>
-</script>
-
-<div ng-controller="HomeCtrl as home">
+<div ng-controller="HomeCtrl as home" data-ng-init="initHome()">
   <div ng-show="home.staticHome" class="box width-full home">
-    <!--<div class="zeppelin">-->
-      <!--<div class="zeppelin2"></div>-->
-    <!--</div>-->
-    <div style="margin-top: 1px;">
+    <div class="zeppelin">
+      <div class="zeppelin2"></div>
+    </div>
+    <div style="margin-top: -380px;">
       <h3 class="box-heading" id="welcome">
         Welcome to Zeppelin, a tool for creating analytics notebooks and dashboards
       </h3>
@@ -44,16 +25,16 @@ limitations under the License.
 
         <div class="col-md-6" ng-if="ticket">
 
-          Please create notes in #Users or Project folders.<br>
+          Please create notes in #Users or Project folders.<br/>
           To create a note in #Users folder, note names should begin with #Users/{{zeppelinUser}}/.
-          <br>
+          <br/>
           To create a note in Project folders, note names should be of the form ProjectName/NoteName.
-          <br><br>
+          <br/><br/>
 
           <b>Notebook
             <i ng-class="isReloadingNotes ? 'fa fa-refresh fa-spin' : 'fa fa-refresh'"
               ng-style="!isReloadingNotes && {'cursor': 'pointer'}" style="font-size: 13px;"
-              ng-click="reloadNotebookList();"
+              ng-click="reloadNoteList();"
               tooltip-placement="bottom" tooltip="Reload notes from storage">
             </i>
           </b>
@@ -61,22 +42,21 @@ limitations under the License.
           <div>
             <h5><a href="" data-toggle="modal" data-target="#noteImportModal" style="text-decoration: none;">
               <i style="font-size: 15px;" class="fa fa-upload"></i> Import note</a></h5>
-            <h5><a href="" data-toggle="modal" data-target="#noteNameModal" style="text-decoration: none;">
+            <h5 ng-controller="NotenameCtrl as notenamectrl"><a href="" data-toggle="modal" data-target="#noteNameModal" style="text-decoration: none;" ng-click="notenamectrl.getInterpreterSettings()">
               <i style="font-size: 15px;" class="icon-notebook"></i> Create new note</a></h5>
             <ul id="notebook-names">
               <li class="filter-names" ng-include="'components/filterNoteNames/filter-note-names.html'"></li>
-              <li ng-repeat="note in home.notes.list | filter:query | orderBy:home.arrayOrderingSrv.notebookListOrdering track by $index">
+              <li ng-repeat="note in home.notes.list | filter:query.q | orderBy:node:false:home.arrayOrderingSrv.noteComparator track by $index">
                 <i style="font-size: 10px;" class="icon-doc"></i>
                 <a style="text-decoration: none;" href="#/notebook/{{note.id}}">{{noteName(note)}}</a>
               </li>
-              <div ng-if="!query || query.name === ''">
-                <li ng-repeat="node in home.notes.root.children | orderBy:home.arrayOrderingSrv.notebookListOrdering track by $index" ng-include="'notebook_folder_renderer.html'" />
+              <div ng-if="!query.q || query.q === ''">
+                <li ng-repeat="node in home.notes.root.children | orderBy:node:false:home.arrayOrderingSrv.noteComparator track by $index"
+                    ng-include src="'app/home/notebook-template.html'" ng-class="note_folder_renderer"></li>
               </div>
-              <div ng-if="query && query.name !== ''">
-                <li ng-repeat="note in home.notes.flatList | filter:query | orderBy:home.arrayOrderingSrv.notebookListOrdering track by $index">
-                  <i style="font-size: 10px;" class="icon-doc"></i>
-                  <a style="text-decoration: none;" href="#/notebook/{{note.id}}">{{noteName(note)}}</a>
-                </li>
+              <div ng-if="query.q">
+                <li ng-repeat="node in home.notes.flatList| filter:query.q | orderBy:home.arrayOrderingSrv.noteFlatListOrdering track by $index"
+                    ng-include src="'app/home/notebook-template.html'" ng-class="note_folder_renderer"></li>
               </div>
             </ul>
           </div>
@@ -85,50 +65,50 @@ limitations under the License.
         <div class="col-md-6 homeTwitter">
 
           <b>Testimonials:</b>
-          <br>
+          <br/>
           "My mind is absolutely blown away by the ease of use, speed, and power of Zeppelin. I've been wanting a tool like this at Twitter my entire time working here."
-          <br><br>
+          <br/><br/>
 
           <b>Featured Notes:</b>
-          <br>
+          <br/>
 
           Dashboards:
           <a href="https://zeppelin.twitter.biz/#/notebook/2BAA85JRY">Lost Customer Service Threads</a> ||
           <a href="https://zeppelin.twitter.biz/#/notebook/2B9U25MCJ">TwitterKit OKRs</a> ||
           <a href="https://zeppelin.twitter.biz/#/notebook/2B7R2X47S">Signup Metrics</a>
-          <br>
+          <br/>
 
           Data Science:
           <a href="https://zeppelin.twitter.biz/#/notebook/2BBUH7QR5">Startup Metrics</a> ||
           <a href="https://zeppelin.twitter.biz/#/notebook/2BDMF7PEA">Metric Center Analysis</a>
-          <br>
+          <br/>
 
           Troubleshooting:
           <a href="https://zeppelin.twitter.biz/#/notebook/2B7TGGJJ1">TCC - Impact Report</a> ||
           <a href="https://zeppelin.twitter.biz/#/notebook/2BDK1EDK4">Signup metrics comparison</a>
 
-          <br><br>
+          <br/><br/>
 
           <b>Get started:</b>
-          <br>
+          <br/>
           Zeppelin <a href="http://zeppelin.apache.org/docs/0.6.0/index.html">documentation</a>
-          <br>
+          <br/>
           "Twitter Tutorial" notes
 
-          <br><br>
+          <br/><br/>
 
           <b>More information and support:</b>
-          <br>
+          <br/>
           <a href="http://go/zeppelin">go/zeppelin</a>
-          <br>
+          <br/>
           zeppelin-users@twitter.com
-          <br>
+          <br/>
           zeppelin hipchat
 
-          <br><br>
+          <br/><br/>
 
           <b>Zeppelin Usage Metrics</b>
-          <br>
+          <br/>
           <table>
             <tr>
               <td>Number of Notes</td>
@@ -160,10 +140,10 @@ limitations under the License.
             </tr>
           </table>
 
-          <br><br>
+          <br/><br/>
 
           <b>Top 25 Notes by Views Last Week</b>
-          <br>
+          <br/>
           <table>
             <tr>
               <td><a href="https://zeppelin.twitter.biz/#/notebook/2BVCXAJ4D">#Users/mschreiner/BluebirdDash</a></td>
@@ -279,11 +259,11 @@ limitations under the License.
   <div ng-show="home.notebookHome" id="{{currentParagraph.id}}_paragraphColumn_main"
        ng-repeat="currentParagraph in home.note.paragraphs"
        ng-controller="ParagraphCtrl"
-       ng-Init="init(currentParagraph, home.note)"
+       ng-init="init(currentParagraph, home.note)"
        ng-class="columnWidthClass(currentParagraph.config.colWidth)"
-       class="paragraph-col">
+       style="margin: 0; padding: 0;">
     <div id="{{currentParagraph.id}}_paragraphColumn"
-         ng-if="currentParagraph.result"
+         ng-if="currentParagraph.results"
          ng-include src="'app/notebook/paragraph/paragraph.html'"
          ng-class="{'paragraph-space box paragraph-margin': !asIframe, 'focused': paragraphFocused}"
          ng-hide="currentParagraph.config.tableHide && home.viewOnly">

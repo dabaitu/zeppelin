@@ -54,6 +54,10 @@ public class ResourcePoolUtils {
         boolean broken = false;
         try {
           client = remoteInterpreterProcess.getClient();
+          if (client == null) {
+            // remote interpreter may not started yet or terminated.
+            continue;
+          }
           List<String> resourceList = client.resourcePoolGetAll();
           Gson gson = new Gson();
           for (String res : resourceList) {
@@ -134,3 +138,4 @@ public class ResourcePoolUtils {
     }
   }
 }
+
