@@ -341,10 +341,7 @@ public class JDBCInterpreter extends Interpreter {
     if (!getJDBCConfiguration(user).isConnectionInDBDriverPool(propertyKey)) {
       createConnectionPool(url, user, propertyKey, properties);
     }
-    Connection con = DriverManager.getConnection(jdbcDriver);
-    con.setClientInfo(properties); // IQ-525 - passing all properties for JDBC clients
-
-    return con;
+    return DriverManager.getConnection(jdbcDriver);
   }
 
   public Connection getConnection(String propertyKey, InterpreterContext interpreterContext)
