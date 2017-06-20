@@ -255,6 +255,13 @@ public class JDBCInterpreter extends Interpreter {
       return uc.getUsernamePassword(replName);
     }
 
+    // elfowl try finding credentials w/o the jdbc. part to support current credentials
+    if (replName.startsWith("jdbc.")) {
+      UsernamePassword up = uc.getUsernamePassword(replName.replaceFirst("jdbc.", ""));
+      if (up != null) {
+        return up;
+      }
+    }
 
     // elfowl we support downstream authentication via the username alone
     if (interpreterContext.getAuthenticationInfo().getUser() != null) {
