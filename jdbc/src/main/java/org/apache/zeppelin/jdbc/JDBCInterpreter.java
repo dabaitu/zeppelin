@@ -621,6 +621,7 @@ public class JDBCInterpreter extends Interpreter {
       for (int i = 0; i < multipleSqlArray.size(); i++) {
         String sqlToExecute = multipleSqlArray.get(i);
         statement = connection.createStatement();
+        statement.setMaxRows(getMaxResult()); // IQ-407
         if (statement == null) {
           return new InterpreterResult(Code.ERROR, "Prefix not found.");
         }
