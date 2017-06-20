@@ -71,34 +71,35 @@ function websocketEvents ($rootScope, $websocket, $location, baseUrlSrv) {
       $rootScope.$broadcast('setUpdateNoteJobs', data.noteRunningJobs)
     } else if (op === 'AUTH_INFO') {
       let btn = []
-      if ($rootScope.ticket.roles === '[]') {
+      // elfowl reenable login via LDAP?
+      // if ($rootScope.ticket.roles === '[]') {
         btn = [{
           label: 'Close',
           action: function (dialog) {
             dialog.close()
           }
         }]
-      } else {
-        btn = [{
-          label: 'Login',
-          action: function (dialog) {
-            dialog.close()
-            angular.element('#loginModal').modal({
-              show: 'true'
-            })
-          }
-        }, {
-          label: 'Cancel',
-          action: function (dialog) {
-            dialog.close()
-            // using $rootScope.apply to trigger angular digest cycle
-            // changing $location.path inside bootstrap modal wont trigger digest
-            $rootScope.$apply(function () {
-              $location.path('/')
-            })
-          }
-        }]
-      }
+//      } else {
+//        btn = [{
+//          label: 'Login',
+//          action: function (dialog) {
+//            dialog.close()
+//            angular.element('#loginModal').modal({
+//              show: 'true'
+//            })
+//          }
+//        }, {
+//          label: 'Cancel',
+//          action: function (dialog) {
+//            dialog.close()
+//            // using $rootScope.apply to trigger angular digest cycle
+//            // changing $location.path inside bootstrap modal wont trigger digest
+//            $rootScope.$apply(function () {
+//              $location.path('/')
+//            })
+//          }
+//        }]
+//      }
 
       BootstrapDialog.show({
         closable: false,
