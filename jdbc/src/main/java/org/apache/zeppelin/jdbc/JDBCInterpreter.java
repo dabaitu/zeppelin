@@ -255,6 +255,11 @@ public class JDBCInterpreter extends Interpreter {
       return uc.getUsernamePassword(replName);
     }
 
+
+    // elfowl we support downstream authentication via the username alone
+    if (interpreterContext.getAuthenticationInfo().getUser() != null) {
+      return new UsernamePassword(interpreterContext.getAuthenticationInfo().getUser(), "");
+    }
     return null;
   }
 
