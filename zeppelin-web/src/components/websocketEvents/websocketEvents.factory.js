@@ -73,12 +73,12 @@ function websocketEvents ($rootScope, $websocket, $location, baseUrlSrv) {
       let btn = []
       // elfowl reenable login via LDAP?
       // if ($rootScope.ticket.roles === '[]') {
-        btn = [{
-          label: 'Close',
-          action: function (dialog) {
-            dialog.close()
-          }
-        }]
+      btn = [{
+        label: 'Close',
+        action: function (dialog) {
+          dialog.close()
+        }
+      }]
       // } else {
       //   btn = [{
       //     label: 'Login',
