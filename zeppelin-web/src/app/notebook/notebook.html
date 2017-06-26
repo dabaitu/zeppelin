@@ -110,7 +110,7 @@ limitations under the License.
   <div id="{{currentParagraph.id}}_paragraphColumn_main"
        ng-repeat="currentParagraph in note.paragraphs"
        ng-controller="ParagraphCtrl"
-       ng-init="init(currentParagraph, note)"
+       ng-init="init(currentParagraph, note, viewOnly)"
        ng-class="columnWidthClass(currentParagraph.config.colWidth)"
        style="margin: 0; padding: 0;"
        viewport-watch>
