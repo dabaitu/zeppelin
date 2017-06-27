@@ -29,7 +29,7 @@ function NotebookCtrl ($scope, $route, $routeParams, $location, $rootScope,
   $scope.note = null
   $scope.editorToggled = false
   $scope.tableToggled = false
-  $scope.viewOnly = true
+  $scope.viewOnly = false
   $scope.showSetting = false
   $scope.looknfeelOption = ['default', 'simple', 'report']
   $scope.cronOption = [
