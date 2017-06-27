@@ -122,10 +122,9 @@ function ParagraphCtrl ($scope, $rootScope, $route, $window, $routeParams, $loca
   let angularObjectRegistry = {}
 
   // Controller init
-  $scope.init = function (newParagraph, note, viewOnly) {
+  $scope.init = function (newParagraph, note) {
     $scope.paragraph = newParagraph
     $scope.parentNote = note
-    $scope.viewOnly = viewOnly
     $scope.originalText = angular.copy(newParagraph.text)
     $scope.chart = {}
     $scope.baseMapOption = ['Streets', 'Satellite', 'Hybrid', 'Topo', 'Gray', 'Oceans', 'Terrain']

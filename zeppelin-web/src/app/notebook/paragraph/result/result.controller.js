@@ -152,10 +152,8 @@ function ResultCtrl ($scope, $rootScope, $route, $window, $routeParams, $locatio
       : {'pointer-events': 'none' }
   }
 
-  $scope.init = function (result, config, paragraph, index, viewOnly) {
+  $scope.init = function (result, config, paragraph, index) {
     // register helium plugin vis
-    $scope.viewOnly = viewOnly
-
     let visBundles = heliumService.getVisualizationBundles()
     visBundles.forEach(function (vis) {
       $scope.builtInTableDataVisualizationList.push({
@@ -607,14 +605,10 @@ function ResultCtrl ($scope, $rootScope, $route, $window, $routeParams, $locatio
   }
 
   const commitParagraphResult = function (title, text, config, params) {
-    if ($scope.viewOnly) {
-      return
-    }
-
     let newParagraphConfig = angular.copy(paragraph.config)
     newParagraphConfig.results = newParagraphConfig.results || []
     newParagraphConfig.results[resultIndex] = config
-    if ($scope.revisionView === true) {
+    if ($scope.revisionView === true || $scope.viewOnly) {
       // local update without commit
       updateData({
         type: $scope.type,
