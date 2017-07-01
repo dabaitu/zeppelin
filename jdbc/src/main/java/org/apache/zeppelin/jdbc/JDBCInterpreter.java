@@ -614,7 +614,10 @@ public class JDBCInterpreter extends Interpreter {
     try {
       connection = getConnection(propertyKey, interpreterContext);
       if (connection == null) {
-        return new InterpreterResult(Code.ERROR, "Prefix not found.");
+        return new InterpreterResult(Code.ERROR,
+          String.format("Prefix(%s) not found in %s. Prefixes in %s: %s",
+            propertyKey, interpreterContext.getReplName(), interpreterContext.getReplName(),
+              StringUtils.join(basePropretiesMap.keySet(), ", ")));
       }
 
       ArrayList<String> multipleSqlArray = splitSqlQueries(sql);
@@ -623,7 +626,10 @@ public class JDBCInterpreter extends Interpreter {
         statement = connection.createStatement();
         statement.setFetchSize(getMaxResult()); // IQ-407
         if (statement == null) {
-          return new InterpreterResult(Code.ERROR, "Prefix not found.");
+          return new InterpreterResult(Code.ERROR,
+            String.format("Prefix(%s) not found in %s. Prefixes in %s: %s",
+              propertyKey, interpreterContext.getReplName(), interpreterContext.getReplName(),
+                StringUtils.join(basePropretiesMap.keySet(), ", ")));
         }
 
         try {
@@ -762,19 +768,14 @@ public class JDBCInterpreter extends Interpreter {
   }
 
   public String getPropertyKey(String cmd) {
-    boolean firstLineIndex = cmd.startsWith("(");
+    String firstLine = cmd.split("\n")[0].trim();
+    String propertyKeyPattern = "^\\([a-zA-Z0-9-_]+\\)";
 
-    if (firstLineIndex) {
-      int configStartIndex = cmd.indexOf("(");
-      int configLastIndex = cmd.indexOf(")");
-      if (configStartIndex != -1 && configLastIndex != -1) {
-        return cmd.substring(configStartIndex + 1, configLastIndex);
-      } else {
-        return null;
-      }
-    } else {
-      return DEFAULT_KEY;
+    if (firstLine.matches(propertyKeyPattern)) {
+      return firstLine.replaceAll("\\(", "").replaceAll("\\)", "");
     }
+
+    return DEFAULT_KEY;
   }
 
   @Override
