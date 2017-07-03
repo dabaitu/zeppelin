@@ -28,6 +28,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.dbcp2.ConnectionFactory;
 import org.apache.commons.dbcp2.DriverManagerConnectionFactory;
@@ -89,6 +91,7 @@ public class JDBCInterpreter extends Interpreter {
 
   private Logger logger = LoggerFactory.getLogger(JDBCInterpreter.class);
 
+  static final Pattern PROPERTY_KEY_PATTERN = Pattern.compile("^\\(([a-zA-Z0-9-_]+)\\)");
   static final String INTERPRETER_NAME = "jdbc";
   static final String COMMON_KEY = "common";
   static final String MAX_LINE_KEY = "max_count";
@@ -256,7 +259,7 @@ public class JDBCInterpreter extends Interpreter {
     }
 
     // elfowl try finding credentials w/o the jdbc. part to support current credentials
-    if (replName.startsWith("jdbc.")) {
+    if (uc != null && replName.startsWith("jdbc.")) {
       UsernamePassword up = uc.getUsernamePassword(replName.replaceFirst("jdbc.", ""));
       if (up != null) {
         return up;
@@ -615,9 +618,8 @@ public class JDBCInterpreter extends Interpreter {
       connection = getConnection(propertyKey, interpreterContext);
       if (connection == null) {
         return new InterpreterResult(Code.ERROR,
-          String.format("Prefix(%s) not found in %s. Prefixes in %s: %s",
-            propertyKey, interpreterContext.getReplName(), interpreterContext.getReplName(),
-              StringUtils.join(basePropretiesMap.keySet(), ", ")));
+          String.format("Prefix(%s) not found in %s.",
+            propertyKey, interpreterContext.getReplName()));
       }
 
       ArrayList<String> multipleSqlArray = splitSqlQueries(sql);
@@ -627,9 +629,8 @@ public class JDBCInterpreter extends Interpreter {
         statement.setFetchSize(getMaxResult()); // IQ-407
         if (statement == null) {
           return new InterpreterResult(Code.ERROR,
-            String.format("Prefix(%s) not found in %s. Prefixes in %s: %s",
-              propertyKey, interpreterContext.getReplName(), interpreterContext.getReplName(),
-                StringUtils.join(basePropretiesMap.keySet(), ", ")));
+            String.format("Prefix(%s) not found in %s.",
+              propertyKey, interpreterContext.getReplName()));
         }
 
         try {
@@ -768,11 +769,10 @@ public class JDBCInterpreter extends Interpreter {
   }
 
   public String getPropertyKey(String cmd) {
-    String firstLine = cmd.split("\n")[0].trim();
-    String propertyKeyPattern = "^\\([a-zA-Z0-9-_]+\\)";
+    Matcher m = PROPERTY_KEY_PATTERN.matcher(cmd);
 
-    if (firstLine.matches(propertyKeyPattern)) {
-      return firstLine.replaceAll("\\(", "").replaceAll("\\)", "");
+    if (m.find()) {
+      return m.group(1);
     }
 
     return DEFAULT_KEY;
