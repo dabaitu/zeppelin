@@ -248,7 +248,7 @@ public class Paragraph extends Job implements Serializable, Cloneable {
 
     Matcher m = REPL_PATTERN.matcher(text);
     if (m.find()) {
-      return text.substring(m.group(0).length() + 1);
+      return text.substring(m.group(0).length());
     }
 
     return text;
